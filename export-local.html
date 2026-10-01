@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تصدير بيانات النسخة السابقة</title>
+<style>body{font-family:Tahoma,'Segoe UI',sans-serif;max-width:640px;margin:60px auto;padding:0 20px;line-height:1.9;color:#16221F}
+button{background:#1D5445;color:#fff;border:0;border-radius:6px;padding:10px 22px;font-size:16px;cursor:pointer}li{margin-bottom:4px}.muted{color:#4A5854;font-size:14px}</style></head>
+<body>
+<h1>تصدير بيانات النسخة السابقة</h1>
+<p>هذه الصفحة تُفتح على الجهاز الذي كان يعمل عليه البرنامج القديم (ملف HTML)، وبالمتصفح نفسه.</p>
+<ol><li>ضع هذا الملف في المجلد نفسه الذي فيه ملف البرنامج القديم.</li><li>افتحه بالمتصفح نفسه الذي كنت تستخدمه.</li><li>اضغط الزر، وسيُنزَّل ملف JSON فيه كل البيانات المحفوظة في المتصفح.</li></ol>
+<p class="muted">يستخدم المالك هذا الملف مرتين: مع سكربت <b>import-backup</b> لنقل بيانات البرنامج الموحد، ومن زر «استيراد بيانات من النسخة السابقة» داخل كل نظام مدمج في الموقع الجديد.</p>
+<button onclick="go()">تنزيل البيانات</button>
+<p id="r" class="muted"></p>
+<script>
+function go(){var o={};for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);o[k]=localStorage.getItem(k)}
+var n=Object.keys(o).length;if(!n){document.getElementById('r').textContent='لا توجد بيانات محفوظة في هذا المتصفح لهذا الموقع. تأكد أنك تفتح الصفحة بالمتصفح نفسه ومن المجلد نفسه.';return}
+var b=new Blob([JSON.stringify({exportedAt:new Date().toISOString(),localStorage:o})],{type:'application/json'});
+var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='بيانات_النسخة_السابقة.json';a.click();
+document.getElementById('r').textContent='تم تنزيل '+n+' عنصرًا.'}
+</script>
+</body></html>
