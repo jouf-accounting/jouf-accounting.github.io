@@ -1,0 +1,1900 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" translate="no" class="notranslate">
+<head>
+<meta charset="UTF-8">
+<meta name="google" content="notranslate">
+<meta http-equiv="Content-Language" content="ar">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>نظام تحليل استطلاعات الرأي</title>
+<style>
+:root{--navy:#1F4E79;--navy2:#2E6DA4;--light:#DCE6F1;--alt:#F2F7FB;--line:#C9D8E6;--ok:#1E7A46;--warn:#B45309;--bad:#B01B2E}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Tahoma,Arial,sans-serif;background:#EEF2F6;color:#1a2733;font-size:14px}
+header{background:var(--navy);color:#fff;padding:9px 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;position:sticky;top:0;z-index:50}
+header h1{font-size:16px;margin:0 0 0 auto;font-weight:700}
+button{font-family:inherit;font-size:13px;border:0;border-radius:6px;padding:7px 12px;cursor:pointer;background:#fff;color:var(--navy);font-weight:600}
+button:hover{background:var(--light)}
+button.gh{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.55)}
+button.gh:hover{background:rgba(255,255,255,.15)}
+button.sm{padding:3px 8px;font-size:12px;background:var(--light);color:var(--navy)}
+button.del{background:#FBE4E6;color:var(--bad)}
+button.pri{background:var(--navy);color:#fff}button.pri:hover{background:var(--navy2)}
+nav{display:flex;gap:4px;background:#fff;padding:8px 16px 0;border-bottom:1px solid var(--line);position:sticky;top:50px;z-index:40;flex-wrap:wrap}
+nav a{padding:9px 16px;border-radius:8px 8px 0 0;cursor:pointer;font-weight:600;color:#5b6b7b;border:1px solid transparent;border-bottom:0;user-select:none}
+nav a.on{background:var(--alt);color:var(--navy);border-color:var(--line)}
+main{padding:16px;max-width:1420px;margin:auto}
+.page{display:none}.page.on{display:block}
+.card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.card h2{margin:0 0 12px;font-size:16px;color:var(--navy);border-right:4px solid var(--navy);padding-right:8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+label{display:block;font-size:12px;color:#5b6b7b;margin-bottom:3px;font-weight:600}
+input,select,textarea{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px;font-family:inherit;font-size:13px;background:#fff}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--navy2);border-color:var(--navy2)}
+table{border-collapse:collapse;width:100%}
+th,td{border:1px solid var(--line);padding:4px 5px;text-align:center;font-size:12.5px}
+th{background:var(--navy);color:#fff;font-weight:600;font-size:12px}
+tr.alt td{background:var(--alt)}
+td.st{text-align:right}
+td.st input{border:0;background:transparent;padding:3px;font-size:12.5px;width:100%}
+td.st input:focus{background:#fff;border:1px solid var(--navy2)}
+td.num input{width:58px;text-align:center;padding:4px 2px;border:1px solid #dde6ee}
+.calc{background:var(--light);font-weight:700}
+.deg{font-weight:700}.d1{color:var(--ok)}.d2{color:#2E7D32}.d3{color:var(--warn)}.d4,.d5{color:var(--bad)}
+.hint{font-size:12px;color:#5b6b7b;line-height:1.7}
+.launch{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.col{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.col h3{margin:0;background:var(--navy);color:#fff;font-size:14px;padding:9px 12px;text-align:center}
+.col .lst{padding:8px}
+.sv{display:flex;align-items:center;gap:6px;width:100%;text-align:right;background:var(--alt);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:6px;cursor:pointer;font-size:13px;font-weight:600;color:#1a2733}
+.sv:hover{background:var(--light);border-color:var(--navy2)}
+.sv .b{margin-inline-start:auto;font-size:11px;border-radius:12px;padding:2px 8px;background:#e6ebf0;color:#5b6b7b;font-weight:700;white-space:nowrap}
+.sv .b.done{background:#D9F0E1;color:var(--ok)}
+.big{display:flex;gap:14px;flex-wrap:wrap}
+.kpi{flex:1;min-width:150px;background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff;border-radius:10px;padding:12px 14px}
+.kpi b{display:block;font-size:26px;line-height:1.2}.kpi span{font-size:12px;opacity:.85}
+.modal{position:fixed;inset:0;background:rgba(15,30,45,.55);display:none;align-items:center;justify-content:center;z-index:100;padding:16px}
+.modal.on{display:flex}
+.modal .box{background:#fff;border-radius:12px;padding:16px;max-width:780px;width:100%;max-height:88vh;overflow:auto}
+.modal textarea{height:220px;font-family:monospace;direction:ltr;text-align:left}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.tag{background:var(--light);color:var(--navy);border-radius:20px;padding:4px 12px;font-size:13px;font-weight:700}
+.warnbox{background:#FFF7E6;border:1px solid #F0D08A;color:#7a5a12;padding:8px 10px;border-radius:8px;font-size:12.5px;margin-bottom:10px}
+.dbrow{display:flex;gap:6px;align-items:center;margin-bottom:4px}
+.dbrow span.n{width:26px;text-align:center;color:#5b6b7b;font-size:12px}
+.axbox{border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:10px;background:var(--alt)}
+.gbox{background:#fff;border-radius:16px;padding:26px 24px;max-width:440px;width:100%;box-shadow:0 18px 50px rgba(0,0,0,.28)}
+.gtabs{display:flex;gap:6px;background:#eef3f8;border-radius:10px;padding:4px;margin:14px 0 14px}
+.gt{flex:1;background:transparent;color:#5b6b7b;font-size:13px;padding:8px 6px;border-radius:8px}
+.gt.on{background:var(--navy);color:#fff}
+.gbox input,.gbox select{text-align:center;margin-bottom:8px}
+.mtab td,.mtab th{text-align:center}
+.mtab td.r{text-align:right}
+.mtab input[type=text],.mtab input[type=date]{padding:5px 6px;font-size:12.5px}
+.pill{display:inline-block;border-radius:12px;padding:2px 9px;font-size:11px;font-weight:700}
+.pill.ok{background:#D9F0E1;color:var(--ok)}.pill.no{background:#FBE4E6;color:var(--bad)}
+.pill.wr{background:#FFF1D6;color:var(--warn)}
+@media print{header,nav,.noprint{display:none}}
+</style>
+</head>
+<body>
+
+<div id="gate" style="position:fixed;inset:0;background:linear-gradient(160deg,#1F4E79,#2E6DA4);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;overflow:auto">
+  <div class="gbox">
+    <img id="gateLogo" style="height:74px;margin-bottom:6px" alt="">
+    <h2 style="margin:0 0 4px;color:#1F4E79;text-align:center">نظام تحليل استطلاعات الرأي</h2>
+    <p style="margin:0;text-align:center;font-size:12px;color:#5b6b7b" id="gateOrg"></p>
+
+    <div class="gtabs" id="gTabs">
+      <button class="gt on" id="tabOwner" onclick="gateMode('owner')">🔑 دخول المالك</button>
+      <button class="gt" id="tabMember" onclick="gateMode('member')">👥 دخول أعضاء اللجنة</button>
+    </div>
+
+    <p id="gateMsg" class="hint" style="margin:0 0 10px;text-align:center"></p>
+
+    <div id="gOwner">
+      <input id="gatePin" type="password" placeholder="كلمة مرور المالك" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+
+    <div id="gMember" style="display:none">
+      <div id="whoWrap"><label style="text-align:center">اسم العضو</label>
+        <select id="gateWho"></select></div>
+      <input id="gateMPin" type="password" placeholder="الرقم السري" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+
+    <div id="gSetup" style="display:none">
+      <input id="newPin1" type="password" placeholder="كلمة مرور المالك الجديدة" onkeydown="if(event.key==='Enter')doLogin()">
+      <input id="newPin2" type="password" placeholder="أعد كتابة كلمة المرور" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+
+    <div style="margin-top:8px;text-align:center">
+      <button class="pri" id="gateBtn" onclick="doLogin()" style="width:100%;padding:10px">دخول</button>
+    </div>
+    <p id="gateErr" style="color:#B01B2E;font-size:12.5px;margin:10px 0 0;text-align:center"></p>
+    <p id="gateNote" class="hint" style="margin:10px 0 0;text-align:center;font-size:11.5px"></p>
+  </div>
+</div>
+
+<header>
+  <h1>نظام تحليل استطلاعات الرأي — مقياس ليكرت الخماسي <span style="font-size:12px;opacity:.75;font-weight:600">الإصدار 3.4</span></h1>
+  <span id="modeBadge" class="tag" style="background:#dbe9f7">—</span>
+  <button class="ownerOnly" onclick="exportColleagueCopy()">📤 تصدير نسخة للزملاء</button>
+  <button class="gh ownerOnly" onclick="resetDb()">استعادة القاعدة الأصلية</button>
+  <button class="gh ownerOnly" onclick="exportUpdatePack()">📦 حزمة تحديث</button>
+  <button class="gh copyOnly" onclick="el('updFile').click()" style="display:none">تحديث من المالك</button>
+  <input type="file" id="updFile" accept=".json" style="display:none" onchange="importUpdate(this)">
+  <span id="savedTag" class="hint" style="color:#cfe0f0"></span>
+  <button class="gh" onclick="saveAll()">حفظ نسخة احتياطية</button>
+  <button class="gh ownerOnly" onclick="el('openFile').click()">استيراد / استعادة</button>
+  <input type="file" id="openFile" accept=".json" style="display:none" onchange="restoreAll(this)">
+  <button class="gh" onclick="logout()">🔒 خروج</button>
+</header>
+
+<nav>
+  <a class="on" data-p="p0" onclick="tab(this)">الصفحة الرئيسية</a>
+  <a data-p="p1" onclick="tab(this)">قاعدة البيانات</a>
+  <a data-p="p2" onclick="tab(this)">إدخال النتائج</a>
+  <a data-p="p3" onclick="tab(this)">التحليل والتقرير</a>
+  <a data-p="p4" onclick="tab(this)">الأعضاء والصلاحيات</a>
+</nav>
+
+<main>
+
+<section id="p0" class="page on">
+  <div class="card">
+    <h2>البيانات العامة</h2>
+    <div class="grid" id="settingsGrid"></div>
+    <div class="bar ownerOnly" style="margin-top:12px;align-items:center">
+      <div><label>شعار الجامعة (يظهر في ترويسة كل صفحة من تقرير الوورد)</label>
+        <input type="file" id="logoFile" accept="image/png,image/jpeg" onchange="setLogo(this)"></div>
+      <img id="logoPrev" style="height:64px;border:1px solid var(--line);border-radius:6px;padding:4px;background:#fff">
+      <button class="sm" onclick="resetLogo()">استعادة الشعار الافتراضي</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>اختر الاستطلاع المطلوب تحليله</h2>
+    <p class="hint">اضغط على اسم الاستطلاع لفتح صفحة إدخال نتائجه. الرقم الأخضر يعني أن النتائج مُدخلة ويُظهر المتوسط العام.
+    ويمكنك أيضاً تبديل الاستطلاع في أي وقت من القائمة المنسدلة أعلى صفحتَي «إدخال النتائج» و«التحليل والتقرير».</p>
+    <div class="launch" id="launcher"></div>
+  </div>
+</section>
+
+<section id="p1" class="page">
+  <div class="card">
+    <div class="bar">
+      <div style="flex:1;min-width:260px">
+        <label>الاستطلاع</label>
+        <select id="dbSel" onchange="renderDbBody()"></select>
+      </div>
+      <button class="pri" onclick="dbNew()">+ استطلاع جديد</button>
+      <button class="sm" onclick="dbDup()">نسخ الاستطلاع</button>
+      <button class="sm del" onclick="dbDel()">حذف الاستطلاع</button>
+    </div>
+    <div class="grid">
+      <div><label>اسم الاستطلاع</label><input id="dbName" oninput="dbRename(this.value)"></div>
+      <div><label>فئة المستفيدين (تُصنَّف بها الصفحة الرئيسية)</label>
+        <select id="dbAud" onchange="dbAudSet(this.value)"></select></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="bar">
+      <h2 style="margin:0">المحاور والعبارات</h2>
+      <button class="sm" style="margin-inline-start:auto" onclick="dbAddAxis()">+ إضافة محور</button>
+    </div>
+    <div class="warnbox">التعديل هنا يُحدِّث قاعدة البيانات نفسها ويبقى محفوظاً للسنوات القادمة. كل عبارة مرتبطة برقم ثابت، فلا تتأثر النتائج المُدخلة عند تعديل النص أو إعادة الترتيب.</div>
+    <div id="dbBody"></div>
+  </div>
+</section>
+
+<section id="p2" class="page">
+  <div class="card">
+    <div class="bar">
+      <div style="flex:1;min-width:280px"><label>الاستطلاع</label>
+        <select id="pickSel" onchange="openSurvey(+this.value)"></select></div>
+      <div style="width:210px"><label>الشطر</label>
+        <select id="secSel" onchange="setSection(this.value)"></select></div>
+      <button class="sm" id="mergeBtn" onclick="buildMerged()" style="display:none">تجميع الشطرين تلقائياً</button>
+      <button class="sm" onclick="openPaste()">لصق النتائج من إكسل</button>
+      <button class="sm" onclick="openRaw()">لصق إجابات Google Forms / التفريغ الخام</button>
+      <button class="sm del" onclick="clearCounts()">تفريغ النتائج</button>
+      <button class="pri" style="margin-inline-start:auto" onclick="goto('p3')">الانتقال إلى التحليل ←</button>
+    </div>
+    <div class="grid">
+      <div><label>عدد المجتمع (الممثَّلين)</label><input id="popIn" oninput="setPop(this.value)"></div>
+      <div><label>ملاحظة على العينة (اختياري)</label><input id="noteIn" oninput="setNote(this.value)"></div>
+    </div>
+  </div>
+  <div id="entryBox"></div>
+</section>
+
+<section id="p3" class="page">
+  <div class="card">
+    <div class="bar">
+      <div style="flex:1;min-width:280px"><label>الاستطلاع</label>
+        <select id="pickSel2" onchange="openSurveyTo(+this.value,'p3')"></select></div>
+      <div style="width:210px"><label>الشطر</label>
+        <select id="secSel2" onchange="setSection(this.value)"></select></div>
+      <button class="pri" onclick="exportDocx()">⬇ تقرير Word (.docx)</button>
+      <button onclick="exportXls()">⬇ تصدير Excel</button>
+    </div>
+    <div class="big" id="kpis"></div>
+  </div>
+  <div class="card"><h2>ملخص المحاور</h2><div id="sumBox"></div></div>
+  <div class="card">
+    <h2>نقاط القوة ونقاط الضعف</h2>
+    <p class="hint">اكتب ما تشاء (سطر لكل بند)، أو ولّدها تلقائياً ثم عدّلها. ما تكتبه هنا هو ما يظهر في تقرير الوورد.</p>
+    <div class="grid">
+      <div><label>نقاط القوة</label><textarea id="strengths" style="height:130px" oninput="R().strengths=lines(this.value);save()"></textarea></div>
+      <div><label>نقاط الضعف / مجالات التحسين</label><textarea id="weaknesses" style="height:130px" oninput="R().weaknesses=lines(this.value);save()"></textarea></div>
+    </div>
+    <div style="margin-top:8px"><button class="sm" onclick="autoSW()">توليد تلقائي من أعلى/أدنى العبارات</button></div>
+  </div>
+  <div class="card">
+    <h2>جدول خطة العمل</h2>
+    <div id="planBox"></div>
+    <div style="margin-top:8px"><button class="sm" onclick="addPlan()">+ إضافة توصية</button>
+      <button class="sm" onclick="autoPlan()">توليد من أضعف العبارات</button></div>
+  </div>
+  <div class="card">
+    <h2>التقدم المحرز في تنفيذ خطط عمل السنة السابقة</h2>
+    <div id="prevBox"></div>
+    <div style="margin-top:8px"><button class="sm" onclick="addPrev()">+ إضافة صف</button></div>
+  </div>
+</section>
+
+<section id="p4" class="page">
+  <div class="card">
+    <div class="bar">
+      <h2 style="margin:0">أعضاء اللجنة</h2>
+      <button class="pri" style="margin-inline-start:auto" onclick="memAdd()">+ إضافة عضو</button>
+      <button class="sm" onclick="memAllExpiry()">تاريخ صلاحية موحّد للجميع</button>
+    </div>
+    <p class="hint">يدخل العضو من شاشة الدخول عبر «دخول أعضاء اللجنة» باسمه ورقمه السري. صلاحياته: إدخال النتائج، كتابة نقاط القوة والضعف والتوصيات، واستخراج تقارير Word وExcel — دون تعديل قاعدة البيانات أو البيانات العامة أو إدارة الأعضاء.</p>
+    <div class="warnbox">الأرقام السرية تُحفظ مشفّرة (لا يمكن عرضها بعد حفظها)، ويمكن للمالك تغييرها في أي وقت. عند بلوغ تاريخ الانتهاء يتوقف دخول العضو تلقائياً حتى يُجدَّد التاريخ.</div>
+    <div id="memBox"></div>
+  </div>
+
+  <div class="card">
+    <h2>إعدادات المالك</h2>
+    <div class="grid">
+      <div><label>كلمة مرور المالك</label>
+        <button class="sm" style="width:100%" onclick="setOwnerPin()">🔑 تغيير كلمة مرور المالك</button></div>
+      <div><label>القفل والخروج</label>
+        <button class="sm" style="width:100%" onclick="logout()">🔒 قفل البرنامج الآن</button></div>
+      <div><label>نسخة الزملاء</label>
+        <button class="sm" style="width:100%" onclick="exportColleagueCopy()">📤 تصدير نسخة للزملاء (تشمل الأعضاء)</button></div>
+      <div><label>حزمة تحديث للزملاء</label>
+        <button class="sm" style="width:100%" onclick="exportUpdatePack()">📦 إنشاء حزمة تحديث</button></div>
+      <div><label>نسخة احتياطية كاملة</label>
+        <button class="sm" style="width:100%" onclick="saveAll()">💾 حفظ (تشمل الأعضاء والنتائج)</button></div>
+      <div><label>استعادة</label>
+        <button class="sm" style="width:100%" onclick="el('openFile').click()">📂 استيراد نسخة احتياطية</button></div>
+    </div>
+    <p class="hint" style="margin-top:10px">تنبيه: كلمة مرور المالك محفوظة داخل متصفح هذا الجهاز فقط. إذا مُسحت بيانات المتصفح فستُطلب منك كلمة مرور جديدة عند أول تشغيل، لذلك احتفظ دائماً بنسخة احتياطية (.json).</p>
+  </div>
+</section>
+</main>
+
+<div class="modal" id="pasteModal"><div class="box">
+  <h2 style="margin-top:0;color:#1F4E79">لصق النتائج من إكسل</h2>
+  <p class="hint">٥ أعمدة بالترتيب: موافق بشدة ← موافق ← صحيح إلى حد ما ← غير موافق ← غير موافق بشدة.<br>
+  إذا لصقت ٦ أعمدة فسيُعتبر العمود الأول نص العبارة (ويُحدَّث في قاعدة البيانات). الصفوف بترتيب العبارات نفسه.</p>
+  <textarea id="pasteArea" placeholder="214	148	83	21	9"></textarea>
+  <div class="bar" style="margin-top:10px"><button class="pri" onclick="applyPaste()">تطبيق</button>
+    <button class="sm" onclick="closeM('pasteModal')">إلغاء</button></div>
+</div></div>
+
+<div class="modal" id="rawModal"><div class="box">
+  <h2 style="margin-top:0;color:#1F4E79">لصق التفريغ الخام</h2>
+  <p class="hint">الصق مخرجات <b>Google Forms</b> أو إكسل كما هي: كل صف = مستجيب، وكل عمود = عبارة بالترتيب نفسه.<br>
+  يقبل النظام الإجابات النصية (موافق بشدة / موافق / محايد أو صحيح إلى حد ما / غير موافق / غير موافق بشدة)
+  أو الأرقام من ١ إلى ٥، ويتجاهل تلقائياً صف العناوين وأعمدة الطابع الزمني والبريد والاسم،
+  ثم يحسب التكرارات <b>ومعامل ألفا كرونباخ الفعلي</b> لكل محور.</p>
+  <textarea id="rawArea" placeholder="موافق بشدة	موافق	محايد	..."></textarea>
+  <div class="bar" style="margin-top:10px"><button class="pri" onclick="applyRaw()">تحليل وتعبئة</button>
+    <button class="sm" onclick="closeM('rawModal')">إلغاء</button></div>
+</div></div>
+
+<script>
+/* ============================================================
+   نواة التحليل وتوليد ملف Word (.docx) — تُحقن داخل الملف الواحد
+   ============================================================ */
+
+/* ---------- CRC32 + ZIP (store) ---------- */
+var CRC_TABLE = (function () {
+  var t = new Uint32Array(256);
+  for (var n = 0; n < 256; n++) {
+    var c = n;
+    for (var k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(buf) {
+  var c = 0xFFFFFFFF;
+  for (var i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function strBytes(s) { return new TextEncoder().encode(s); }
+
+function makeZip(files) {          // files: [{name, data:Uint8Array}]
+  var chunks = [], central = [], offset = 0;
+  function u16(v) { return [v & 255, (v >> 8) & 255]; }
+  function u32(v) { return [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255]; }
+  files.forEach(function (f) {
+    var nameB = strBytes(f.name), data = f.data, crc = crc32(data);
+    var local = [].concat(u32(0x04034b50), u16(20), u16(0x0800), u16(0), u16(0), u16(0),
+      u32(crc), u32(data.length), u32(data.length), u16(nameB.length), u16(0));
+    chunks.push(new Uint8Array(local), nameB, data);
+    central.push({ name: nameB, crc: crc, size: data.length, offset: offset });
+    offset += local.length + nameB.length + data.length;
+  });
+  var cd = [], cdSize = 0;
+  central.forEach(function (c) {
+    var h = [].concat(u32(0x02014b50), u16(20), u16(20), u16(0x0800), u16(0), u16(0), u16(0),
+      u32(c.crc), u32(c.size), u32(c.size), u16(c.name.length), u16(0), u16(0), u16(0), u16(0),
+      u32(0), u32(c.offset));
+    cd.push(new Uint8Array(h), c.name);
+    cdSize += h.length + c.name.length;
+  });
+  var end = new Uint8Array([].concat(u32(0x06054b50), u16(0), u16(0),
+    u16(files.length), u16(files.length), u32(cdSize), u32(offset), u16(0)));
+  var all = chunks.concat(cd, [end]);
+  var total = all.reduce(function (a, b) { return a + b.length; }, 0);
+  var out = new Uint8Array(total), pos = 0;
+  all.forEach(function (b) { out.set(b, pos); pos += b.length; });
+  return out;
+}
+
+/* ---------- حسابات ---------- */
+var OPTIONS = ["موافق بشدة", "موافق", "صحيح إلى حد ما", "غير موافق", "غير موافق بشدة"];
+var WEIGHTS = [5, 4, 3, 2, 1];
+var ORDINALS = ["الأول", "الثاني", "الثالث", "الرابع", "الخامس", "السادس", "السابع", "الثامن",
+  "التاسع", "العاشر", "الحادي عشر", "الثاني عشر", "الثالث عشر", "الرابع عشر", "الخامس عشر"];
+var AR_COUNT = { 1: "محور واحد", 2: "محورين", 3: "ثلاثة محاور", 4: "أربعة محاور", 5: "خمسة محاور",
+  6: "ستة محاور", 7: "سبعة محاور", 8: "ثمانية محاور", 9: "تسعة محاور", 10: "عشرة محاور" };
+
+function degreeOf(m) {
+  if (m >= 4.2) return "مرتفع جدا";
+  if (m >= 3.4) return "مرتفع";
+  if (m >= 2.6) return "متوسط";
+  if (m >= 1.8) return "ضعيف";
+  return "ضعيف جدا";
+}
+function nm(x, d) { d = d === undefined ? 2 : d; return (isFinite(x) ? x.toFixed(d) : "0").replace(".", ","); }
+function pc(x) { return isFinite(x) ? Math.round(x * 100) + "%" : "—"; }
+
+function computeItem(counts) {
+  var n = counts.reduce(function (a, b) { return a + (+b || 0); }, 0);
+  if (!n) return { n: 0, mean: 0, pcts: [0, 0, 0, 0, 0], agree: 0, degree: "—", empty: true };
+  var mean = 0;
+  for (var i = 0; i < 5; i++) mean += (+counts[i] || 0) * WEIGHTS[i];
+  mean = mean / n;
+  return {
+    n: n, mean: mean, agree: mean / 5, degree: degreeOf(mean),
+    pcts: counts.map(function (c) { return (+c || 0) / n; })
+  };
+}
+function computeAll(model) {
+  var axes = model.axes.map(function (ax) {
+    var items = ax.items.map(function (it) {
+      var r = computeItem(it.counts); r.text = it.text; r.counts = it.counts; return r;
+    });
+    var valid = items.filter(function (i) { return !i.empty; });
+    var mean = valid.length ? valid.reduce(function (a, b) { return a + b.mean; }, 0) / valid.length : 0;
+    return { name: ax.name, alpha: ax.alpha, items: items, mean: mean, agree: mean / 5, degree: degreeOf(mean) };
+  });
+  var v = axes.filter(function (a) { return a.mean > 0; });
+  var overall = v.length ? v.reduce(function (a, b) { return a + b.mean; }, 0) / v.length : 0;
+  return { axes: axes, overall: overall, overallDegree: degreeOf(overall) };
+}
+function cronbach(cols) {                   // cols: [[1..5,...], ...]
+  cols = cols.filter(function (c) { return c && c.length; });
+  if (cols.length < 2) return null;
+  var n = Math.min.apply(null, cols.map(function (c) { return c.length; }));
+  if (n < 3) return null;
+  var k = cols.length;
+  function vr(v) {
+    var m = v.reduce(function (a, b) { return a + b; }, 0) / v.length;
+    return v.reduce(function (a, b) { return a + (b - m) * (b - m); }, 0) / (v.length - 1);
+  }
+  var iv = 0; for (var j = 0; j < k; j++) iv += vr(cols[j].slice(0, n));
+  var tot = []; for (var i = 0; i < n; i++) { var s = 0; for (var j2 = 0; j2 < k; j2++) s += cols[j2][i]; tot.push(s); }
+  var tv = vr(tot);
+  if (!tv) return null;
+  return (k / (k - 1)) * (1 - iv / tv);
+}
+
+/* ---------- بناء XML لملف Word ---------- */
+function esc(s) {
+  return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+var FONT = "Sakkal Majalla";
+var FS = { body: 14, title: 20, sub: 13, h1: 16, h2: 15, cap: 11, tbl: 11, num: 10, thead: 10, sm: 12 };
+function rpr(o) {
+  o = o || {};
+  var sz = Math.round((o.size || 11) * 2);
+  return "<w:rPr><w:rFonts w:ascii=\"" + (o.font || FONT) + "\" w:hAnsi=\"" + (o.font || FONT) +
+    "\" w:cs=\"" + (o.font || FONT) + "\"/>" + (o.bold ? "<w:b/><w:bCs/>" : "") +
+    (o.color ? "<w:color w:val=\"" + o.color + "\"/>" : "") +
+    "<w:sz w:val=\"" + sz + "\"/><w:szCs w:val=\"" + sz + "\"/><w:rtl/></w:rPr>";
+}
+function P(text, o) {
+  o = o || {};
+  var jc = o.align || "right";
+  /* في الفقرات ثنائية الاتجاه يعطي "both" محاذاة يمينية سليمة، بخلاف "right" */
+  if (jc === "right" && !o.cell) jc = "both";
+  var pPr = "<w:pPr>";
+  if (o.keepNext) pPr += "<w:keepNext/>";
+  if (o.rule) pPr += '<w:pBdr><w:bottom w:val="single" w:sz="12" w:space="2" w:color="' + o.rule + '"/></w:pBdr>';
+  if (o.shd) pPr += '<w:shd w:val="clear" w:color="auto" w:fill="' + o.shd + '"/>';
+  pPr += "<w:bidi/>";
+  pPr += '<w:spacing w:before="' + (o.before || 0) + '" w:after="' + (o.after === undefined ? 80 : o.after) +
+    '" w:line="' + (o.line || 260) + '" w:lineRule="auto"/>';
+  if (o.ind) pPr += '<w:ind w:right="' + o.ind + '" w:hanging="' + (o.hang || 0) + '"/>';
+  pPr += '<w:jc w:val="' + jc + '"/>' + rpr(o) + "</w:pPr>";
+  var runs = "";
+  (Array.isArray(text) ? text : [text]).forEach(function (t) {
+    if (t === "" || t == null) return;
+    runs += "<w:r>" + rpr(o) + '<w:t xml:space="preserve">' + esc(t) + "</w:t></w:r>";
+  });
+  if (o.pageField) {
+    runs += '<w:r>' + rpr(o) + '<w:t xml:space="preserve"> </w:t></w:r>' +
+      '<w:fldSimple w:instr=" PAGE "><w:r>' + rpr(o) + '<w:t>1</w:t></w:r></w:fldSimple>';
+  }
+  return "<w:p>" + pPr + runs + "</w:p>";
+}
+/* صورة (شعار) داخل فقرة */
+function IMG(rid, cx, cy, align) {
+  return '<w:p><w:pPr><w:bidi/><w:spacing w:before="0" w:after="0"/><w:jc w:val="' + (align || "center") + '"/></w:pPr>' +
+    '<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">' +
+    '<wp:extent cx="' + cx + '" cy="' + cy + '"/><wp:effectExtent l="0" t="0" r="0" b="0"/>' +
+    '<wp:docPr id="7" name="logo"/><wp:cNvGraphicFramePr/>' +
+    '<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">' +
+    '<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">' +
+    '<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">' +
+    '<pic:nvPicPr><pic:cNvPr id="7" name="logo"/><pic:cNvPicPr/></pic:nvPicPr>' +
+    '<pic:blipFill><a:blip r:embed="' + rid + '"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>' +
+    '<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="' + cx + '" cy="' + cy + '"/></a:xfrm>' +
+    '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic>' +
+    '</a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>';
+}
+/* جدول بلا حدود (للترويسة) */
+function TBLNB(grid, rows) {
+  var total = grid.reduce(function (a, b) { return a + b; }, 0);
+  return '<w:tbl><w:tblPr><w:bidiVisual/><w:tblW w:w="' + total + '" w:type="dxa"/><w:jc w:val="center"/>' +
+    '<w:tblBorders>' + ["top", "left", "bottom", "right", "insideH", "insideV"].map(function (x) {
+      return '<w:' + x + ' w:val="none" w:sz="0" w:space="0" w:color="auto"/>';
+    }).join("") + '</w:tblBorders><w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid>' +
+    grid.map(function (g) { return '<w:gridCol w:w="' + g + '"/>'; }).join("") + '</w:tblGrid>' + rows.join("") + '</w:tbl>';
+}
+/* عنوان قسم على شكل شريط ملوّن */
+function BAR(text, o) {
+  o = o || {};
+  return P("   " + text, { size: o.size || FS.h1, bold: true, color: "FFFFFF", shd: o.fill || HDR,
+    align: "right", before: o.before === undefined ? 400 : o.before, after: 200, line: 340, keepNext: true });
+}
+/* تسمية جدول */
+function CAP(text) {
+  return P(text, { size: FS.cap, bold: true, color: "44607A", align: "right", after: 60, before: 60, keepNext: true });
+}
+/* شريط بياني نصي */
+function SPARK(mean) {
+  var full = Math.max(0, Math.min(10, Math.round((mean / 5) * 10)));
+  return new Array(full + 1).join("\u2588") + new Array(10 - full + 1).join("\u2591");
+}
+function TC(text, o) {
+  o = o || {};
+  var w = o.w || 1000;
+  var pr = "<w:tcPr><w:tcW w:w=\"" + w + "\" w:type=\"dxa\"/>" +
+    (o.span ? "<w:gridSpan w:val=\"" + o.span + "\"/>" : "") +
+    (o.vm ? "<w:vMerge" + (o.vm === "restart" ? " w:val=\"restart\"" : "") + "/>" : "") +
+    (o.fill ? "<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"" + o.fill + "\"/>" : "") +
+    "<w:tcMar><w:top w:w=\"30\" w:type=\"dxa\"/><w:left w:w=\"60\" w:type=\"dxa\"/><w:bottom w:w=\"30\" w:type=\"dxa\"/><w:right w:w=\"60\" w:type=\"dxa\"/></w:tcMar>" +
+    "<w:vAlign w:val=\"center\"/></w:tcPr>";
+  return "<w:tc>" + pr + P(text, { size: o.size || 8, bold: o.bold, align: o.align || "center", color: o.color, after: 0, cell: true }) + "</w:tc>";
+}
+function TBL(grid, rows, opt) {
+  opt = opt || {};
+  var total = grid.reduce(function (a, b) { return a + b; }, 0);
+  var b = "<w:tblBorders>" + ["top", "left", "bottom", "right", "insideH", "insideV"].map(function (s) {
+    return "<w:" + s + " w:val=\"single\" w:sz=\"6\" w:space=\"0\" w:color=\"9BB6D0\"/>";
+  }).join("") + "</w:tblBorders>";
+  return "<w:tbl><w:tblPr><w:bidiVisual/><w:tblW w:w=\"" + total + "\" w:type=\"dxa\"/><w:jc w:val=\"center\"/>" +
+    b + "<w:tblLayout w:type=\"fixed\"/></w:tblPr><w:tblGrid>" +
+    grid.map(function (g) { return "<w:gridCol w:w=\"" + g + "\"/>"; }).join("") + "</w:tblGrid>" +
+    rows.join("") + "</w:tbl>";
+}
+function TR(cells, header) {
+  return "<w:tr><w:trPr>" + (header ? "<w:tblHeader/>" : "") + "<w:cantSplit/></w:trPr>" + cells.join("") + "</w:tr>";
+}
+
+var HDR = "1F4E79", NAVY2 = "2E6DA4", SUBC = "DCE6F1", TOT = "BFD4E8", ALTC = "F2F7FB";
+
+function buildDocumentXml(model, calc) {
+  var s = model.settings, out = [];
+  var audience = s.audience || "المستفيدين";
+  var prog = (s.program || "").replace("برنامج ", "");
+  var axes = calc.axes;
+
+  out.push(P((s.deanship || "") + "   " + (s.hijri || "") + " ، " + (s.greg || ""),
+    { size: FS.sub, bold: true, align: "center", color: "44607A", after: 80, rule: "9BB6D0" }));
+  out.push(P(s.title || "استطلاع رأي",
+    { size: FS.title, bold: true, align: "center", color: "FFFFFF", shd: HDR, before: 160, after: 0, line: 400 }));
+  out.push(P((s.program || "") + "   –   " + (s.college || "") + (s.section ? "   –   " + s.section : "") + "   –   " + (s.greg || ""),
+    { size: FS.sub, bold: true, align: "center", color: "FFFFFF", shd: NAVY2, after: 320, line: 340 }));
+
+  out.push(BAR("أولاً: منهجية الدراسة الاستقصائية", { before: 60 }));
+  var secPhrase = (s.section && s.section !== audience) ? " ب" + s.section : "";
+  out.push(P("تحليل نتائج الدراسة الاستقصائية لتقويم المستفيدين (" + audience + ")" + secPhrase + " عن " +
+    (s.subject || s.title || "") + " ببرنامج " + prog + " — " + (s.hijri || "") + " ، " + (s.greg || ""),
+    { size: FS.h2, bold: true, align: "both", after: 200 }));
+
+  out.push(P("واستند هذا التحليل إلى دراسة استقصائية صُمِّمت خصيصاً لتقويم المستفيدين (" + audience +
+    ") عن " + (s.subject || s.title || "") + " ببرنامج " + prog + ". واشتملت الدراسة على " +
+    (AR_COUNT[axes.length] || (axes.length + " محاور")) + " كالآتي:", { size: FS.body, align: "both" }));
+
+  axes.forEach(function (a, i) {
+    out.push(P("المحور " + (ORDINALS[i] || (i + 1)) + ": " + a.name, { size: FS.body, bold: true, after: 60 }));
+  });
+
+  var totalResp = 0;
+  axes.forEach(function (a) { a.items.forEach(function (i) { if (i.n > totalResp) totalResp = i.n; }); });
+  out.push(P("وكان العدد الإجمالي لـ" + audience + " الذين استجابوا للرد على هذه الدراسة الاستقصائية (حجم العينة) " +
+    totalResp + " " + (s.audienceSg || "") + " موزعين كالتالي:", { size: FS.body, align: "both", before: 160 }));
+
+  var pop = parseFloat(s.population);
+  var g1 = [4400, 2400, 2400];
+  out.push(CAP("جدول (1): حجم العينة ونسبة الاستجابة" + (s.section ? " — " + s.section : "")));
+  out.push(TBL(g1, [
+    TR([TC("البيان", { w: g1[0], size: FS.thead, bold: true, color: "FFFFFF", fill: HDR }),
+        TC("العدد", { w: g1[1], size: FS.thead, bold: true, color: "FFFFFF", fill: HDR }),
+        TC("النسبة", { w: g1[2], size: FS.thead, bold: true, color: "FFFFFF", fill: HDR })], true),
+    TR([TC("عدد المستفيدين الممثلين للمجتمع", { w: g1[0], size: FS.tbl, align: "right", fill: ALTC }),
+        TC(pop ? Math.round(pop) : "—", { w: g1[1], size: 10, fill: ALTC }),
+        TC(pop ? pc(totalResp / pop) : "—", { w: g1[2], size: 10, fill: ALTC })]),
+    TR([TC("عدد الاستجابات", { w: g1[0], size: FS.tbl, align: "right" }),
+        TC(totalResp, { w: g1[1], size: FS.tbl }), TC("", { w: g1[2], size: FS.tbl })])
+  ]));
+
+  out.push(P("واستخدمت هذه الدراسة الاستقصائية مقياس النقاط الخمس (مقياس ليكرت)، ثم تم حساب المتوسط والتوجه لكل عبارة ولكل محور. وقد حُدِّد التوجه (درجة الموافقة) استناداً إلى المتوسط المرجَّح على النحو التالي:",
+    { size: FS.body, align: "both", before: 260 }));
+  var g2 = [4600, 4600];
+  var scale = [["اقل من 1.80", "ضعيف جدا"], ["من 1.80 إلى اقل من 2.60", "ضعيف"],
+    ["من 2.60 إلى اقل من 3.40", "متوسط"], ["من 3.40 إلى اقل من 4.20", "مرتفع"],
+    ["أكبر من أو يساوي 4.20", "مرتفع جدا"]];
+  var r2 = [TR([TC("القيمة المتوسطة الموزونة", { w: g2[0], size: FS.thead, bold: true, color: "FFFFFF", fill: HDR }),
+    TC("الموقف (درجة الموافقة)", { w: g2[1], size: FS.thead, bold: true, color: "FFFFFF", fill: HDR })], true)];
+  scale.forEach(function (r, i) {
+    r2.push(TR([TC(r[0], { w: g2[0], size: 10, fill: i % 2 ? "" : ALTC }),
+      TC(r[1], { w: g2[1], size: 10, bold: true, fill: i % 2 ? "" : ALTC })]));
+  });
+  out.push(CAP("جدول (2): مقياس درجة الموافقة وفق المتوسط المرجَّح"));
+  out.push(TBL(g2, r2));
+
+  out.push(P("وللتأكد من صدق وثبات العبارات الواردة بكل محور فقد تم اختبار الصدق والثبات (ألفا كرونباخ) على محاور الاستبانة كما يلي:",
+    { size: FS.body, align: "both", before: 260 }));
+  var g3 = [1200, 5466, 1900, 1900];
+  var r3 = [TR([TC("المحور", { w: g3[0], size: FS.thead, bold: true, color: "FFFFFF", fill: HDR }),
+    TC("عناوين محاور الاستبانة", { w: g3[1], size: FS.thead, bold: true, color: "FFFFFF", fill: HDR }),
+    TC("عدد بنود المحور", { w: g3[2], size: FS.thead, bold: true, color: "FFFFFF", fill: HDR }),
+    TC("معامل الثبات ألفا كرونباخ", { w: g3[3], size: FS.thead, bold: true, color: "FFFFFF", fill: HDR })], true)];
+  axes.forEach(function (a, i) {
+    var f = i % 2 ? "" : ALTC;
+    r3.push(TR([TC(ORDINALS[i] || (i + 1), { w: g3[0], size: FS.tbl, bold: true, fill: f }),
+      TC(a.name, { w: g3[1], size: FS.tbl, align: "right", fill: f }),
+      TC(a.items.length, { w: g3[2], size: FS.tbl, fill: f }),
+      TC(a.alpha ? nm(+a.alpha, 3) : "—", { w: g3[3], size: FS.tbl, fill: f })]));
+  });
+  out.push(CAP("جدول (3): معامل الصدق والثبات (ألفا كرونباخ) لمحاور الاستبانة"));
+  out.push(TBL(g3, r3));
+  out.push(P("حيث أظهر المقياس صدق وثبات جميع محاور الاستبانة.", { size: FS.body, before: 140 }));
+  out.push(P("وفيما يلي موجز لنتائج الدراسة الاستقصائية في الجداول التالية ويليها التحليل.", { size: FS.body, bold: true }));
+
+  /* ------- جداول المحاور ------- */
+  var G = [400, 2700, 460, 520, 460, 520, 460, 520, 460, 520, 460, 520, 720, 720, 1026];
+  axes.forEach(function (a, ai) {
+    if (ai === 0) out.push(BAR("ثانياً: نتائج المحاور وتحليلها"));
+    out.push(P("المحور " + (ORDINALS[ai] || (ai + 1)) + ": " + a.name,
+      { size: FS.h2, bold: true, color: HDR, before: 320, after: 100, keepNext: true, rule: "9BB6D0" }));
+    out.push(CAP("جدول (" + (ai + 4) + "): استجابات المستفيدين على عبارات المحور " + (ORDINALS[ai] || (ai + 1))));
+    var rows = [];
+    var h1 = [TC("العبارة", { w: G[0] + G[1], span: 2, vm: "restart", size: 9.5, bold: true, color: "FFFFFF", fill: HDR })];
+    var h2 = [TC("", { w: G[0] + G[1], span: 2, vm: "cont", size: 8, fill: HDR })];
+    for (var k = 0; k < 5; k++) {
+      var c1 = 2 + k * 2;
+      h1.push(TC(OPTIONS[k], { w: G[c1] + G[c1 + 1], span: 2, size: 9, bold: true, color: "FFFFFF", fill: HDR }));
+      h2.push(TC("ن", { w: G[c1], size: 9, bold: true, color: "FFFFFF", fill: HDR }));
+      h2.push(TC("%", { w: G[c1 + 1], size: 9, bold: true, color: "FFFFFF", fill: HDR }));
+    }
+    ["% الموافقة", "المتوسط الحسابي", "درجة الموافقة"].forEach(function (lab, j) {
+      h1.push(TC(lab, { w: G[12 + j], vm: "restart", size: 9, bold: true, color: "FFFFFF", fill: HDR }));
+      h2.push(TC("", { w: G[12 + j], vm: "cont", size: 7.5, fill: HDR }));
+    });
+    rows.push(TR(h1, true), TR(h2, true));
+
+    a.items.forEach(function (it, i) {
+      var f = i % 2 ? "" : ALTC;
+      var cells = [TC(i + 1, { w: G[0], size: FS.num, bold: true, fill: f }),
+        TC(it.text, { w: G[1], size: FS.tbl, align: "right", fill: f })];
+      for (var k2 = 0; k2 < 5; k2++) {
+        cells.push(TC(Math.round(+it.counts[k2] || 0), { w: G[2 + k2 * 2], size: FS.num, fill: f }));
+        cells.push(TC(pc(it.pcts[k2]), { w: G[3 + k2 * 2], size: FS.num, fill: f }));
+      }
+      cells.push(TC(it.empty ? "—" : pc(it.agree), { w: G[12], size: FS.num, bold: true, fill: f }));
+      cells.push(TC(it.empty ? "—" : nm(it.mean), { w: G[13], size: FS.num, bold: true, fill: f }));
+      cells.push(TC(it.degree, { w: G[14], size: FS.num, bold: true, fill: f }));
+      rows.push(TR(cells));
+    });
+    var wSum = 0; for (var q = 0; q < 12; q++) wSum += G[q];
+    rows.push(TR([TC("المحور ككل", { w: wSum, span: 12, size: FS.tbl, bold: true, fill: TOT }),
+      TC(pc(a.agree), { w: G[12], size: FS.tbl, bold: true, fill: TOT }),
+      TC(nm(a.mean), { w: G[13], size: FS.tbl, bold: true, fill: TOT }),
+      TC(a.degree, { w: G[14], size: FS.tbl, bold: true, fill: TOT })]));
+    out.push(TBL(G, rows));
+    out.push(P("تُظهر نتائج الملخص في الجدول أعلاه أن " + pc(a.agree) + " من " + audience +
+      " راضون عن «" + a.name + "»، والمتوسط المرجَّح هو " + nm(a.mean) +
+      " مما يعني أن درجة الرضا " + a.degree + ".",
+      { size: FS.body, align: "both", before: 200, after: 160, shd: ALTC, ind: 120 }));
+  });
+
+  /* ------- الملخص العام ------- */
+  out.push(BAR("ثالثاً: الملخص العام لنتائج الاستبانة"));
+  out.push(CAP("جدول (" + (axes.length + 4) + "): ملخص نتائج المحاور — " + (model.settings.subject || "")));
+  var g4 = [900, 3766, 1500, 1400, 1000, 1900];
+  var hd4 = ["المحور", "اسم المحور", "نسبة الموافقة", "المتوسط الحسابي", "الدرجة", "التمثيل البياني"];
+  var r4 = [TR(hd4.map(function (t, i) {
+    return TC(t, { w: g4[i], size: FS.thead, bold: true, color: "FFFFFF", fill: HDR });
+  }), true)];
+  axes.forEach(function (a, i) {
+    var f = i % 2 ? "" : ALTC;
+    r4.push(TR([TC(ORDINALS[i] || (i + 1), { w: g4[0], size: FS.tbl, bold: true, fill: f }),
+      TC(a.name, { w: g4[1], size: FS.tbl, align: "right", fill: f }),
+      TC(pc(a.agree), { w: g4[2], size: FS.tbl, fill: f }),
+      TC(nm(a.mean), { w: g4[3], size: FS.tbl, fill: f }),
+      TC(a.degree, { w: g4[4], size: FS.num, bold: true, fill: f }),
+      TC(SPARK(a.mean), { w: g4[5], size: FS.tbl, color: HDR, fill: f })]));
+  });
+  r4.push(TR([TC("المتوسط العام", { w: g4[0] + g4[1], span: 2, size: FS.tbl, bold: true, fill: TOT }),
+    TC(pc(calc.overall / 5), { w: g4[2], size: FS.tbl, bold: true, fill: TOT }),
+    TC(nm(calc.overall), { w: g4[3], size: FS.tbl, bold: true, fill: TOT }),
+    TC(calc.overallDegree, { w: g4[4], size: FS.num, bold: true, fill: TOT }),
+    TC(SPARK(calc.overall), { w: g4[5], size: FS.tbl, bold: true, color: HDR, fill: TOT })]));
+  out.push(TBL(g4, r4));
+  out.push(P("وبذلك بلغ المتوسط العام للاستبانة " + nm(calc.overall) + " بنسبة موافقة " +
+    pc(calc.overall / 5) + " وهو ما يقابل درجة «" + calc.overallDegree + "».",
+    { size: FS.body, bold: true, align: "both", before: 200, after: 160, shd: SUBC, ind: 120 }));
+
+  /* ------- القوة والضعف ------- */
+  var all = [];
+  axes.forEach(function (a) { a.items.forEach(function (i) { if (!i.empty) all.push(i); }); });
+  var strong = all.slice().sort(function (x, y) { return y.mean - x.mean; }).slice(0, model.nStrong || 3);
+  var weak = all.slice().sort(function (x, y) { return x.mean - y.mean; }).slice(0, model.nWeak || 3);
+
+  var strongList = (model.strengths && model.strengths.length) ? model.strengths :
+    strong.map(function (i) { return i.text + "  (المتوسط " + nm(i.mean) + " – " + i.degree + ")"; });
+  var weakList = (model.weaknesses && model.weaknesses.length) ? model.weaknesses :
+    weak.map(function (i) { return i.text + "  (المتوسط " + nm(i.mean) + " – " + i.degree + ")"; });
+
+  out.push(BAR("رابعاً: نقاط القوة ومجالات التحسين"));
+  out.push(P("نقاط القوة:", { size: FS.h2, bold: true, color: HDR, before: 180, after: 100, keepNext: true }));
+  strongList.forEach(function (t) { out.push(P("\u200f\u25cf   " + t, { size: FS.body, after: 70, ind: 200 })); });
+  out.push(P("نقاط الضعف / مجالات التحسين:", { size: FS.h2, bold: true, color: HDR, before: 260, after: 100, keepNext: true }));
+  weakList.forEach(function (t) { out.push(P("\u200f\u25cf   " + t, { size: FS.body, after: 70, ind: 200 })); });
+
+  var plan = (model.plan && model.plan.length) ? model.plan :
+    weak.map(function (i) { return { rec: "اتخاذ إجراءات لتحسين: " + i.text, act: "", crit: "", who: "", from: "", to: "" }; });
+
+  out.push(P("خطط التحسين المقترحة:", { size: FS.h2, bold: true, color: HDR, before: 260, after: 100, keepNext: true }));
+  plan.forEach(function (r) { out.push(P("\u200f\u25cf   " + r.rec, { size: FS.body, after: 70, ind: 200 })); });
+
+  out.push(BAR("خامساً: خطة العمل والمتابعة"));
+  out.push(CAP("جدول (" + (axes.length + 5) + "): خطة العمل التنفيذية"));
+  var g5 = [700, 2400, 2100, 1600, 1400, 1133, 1133];
+  var r5 = [TR(["الرقم", "التوصيات", "الإجراءات", "آلية التقييم أو المعايير", "الشخص المسؤول", "تاريخ البدء", "تاريخ الانتهاء"]
+    .map(function (h, i) { return TC(h, { w: g5[i], size: FS.thead, bold: true, color: "FFFFFF", fill: HDR }); }), true)];
+  plan.forEach(function (r, i) {
+    var f = i % 2 ? "" : ALTC;
+    r5.push(TR([TC(i + 1, { w: g5[0], size: FS.num, bold: true, fill: f }),
+      TC(r.rec, { w: g5[1], size: FS.num, align: "right", fill: f }),
+      TC(r.act, { w: g5[2], size: FS.num, align: "right", fill: f }),
+      TC(r.crit, { w: g5[3], size: FS.num, align: "right", fill: f }),
+      TC(r.who, { w: g5[4], size: FS.num, align: "right", fill: f }),
+      TC(r.from, { w: g5[5], size: FS.num, fill: f }),
+      TC(r.to, { w: g5[6], size: FS.num, fill: f })]));
+  });
+  out.push(TBL(g5, r5));
+
+  out.push(CAP("جدول (" + (axes.length + 6) + "): التقدم المحرز في تنفيذ خطط عمل السنة السابقة"));
+  var g6 = [3000, 1800, 1000, 1900, 2766];
+  var prev = (model.prev && model.prev.length) ? model.prev : [{ act: "", who: "", done: "", why: "", next: "" }];
+  var r6 = [TR([TC("الإجراءات المخطط لها", { w: g6[0], vm: "restart", size: FS.thead, bold: true, color: "FFFFFF", fill: HDR }),
+    TC("الشخص المسؤول", { w: g6[1], vm: "restart", size: FS.thead, bold: true, color: "FFFFFF", fill: HDR }),
+    TC("مُنجز", { w: g6[2], vm: "restart", size: FS.thead, bold: true, color: "FFFFFF", fill: HDR }),
+    TC("إذا لم تكن كاملة، اذكر", { w: g6[3] + g6[4], span: 2, size: FS.thead, bold: true, color: "FFFFFF", fill: HDR })], true),
+  TR([TC("", { w: g6[0], vm: "cont", fill: HDR }), TC("", { w: g6[1], vm: "cont", fill: HDR }),
+    TC("", { w: g6[2], vm: "cont", fill: HDR }),
+    TC("الأسباب", { w: g6[3], size: FS.thead, bold: true, color: "FFFFFF", fill: HDR }),
+    TC("الإجراء المقترح", { w: g6[4], size: FS.thead, bold: true, color: "FFFFFF", fill: HDR })], true)];
+  prev.forEach(function (r, i) {
+    var f = i % 2 ? "" : ALTC;
+    r6.push(TR([TC(r.act, { w: g6[0], size: FS.num, align: "right", fill: f }),
+      TC(r.who, { w: g6[1], size: FS.num, align: "right", fill: f }),
+      TC(r.done, { w: g6[2], size: FS.num, fill: f }),
+      TC(r.why, { w: g6[3], size: FS.num, align: "right", fill: f }),
+      TC(r.next, { w: g6[4], size: FS.num, align: "right", fill: f })]));
+  });
+  out.push(TBL(g6, r6));
+
+  out.push(P("", { size: FS.body, before: 260, rule: "9BB6D0" }));
+  out.push(P(s.committee || "لجنة القياس", { size: FS.h1, bold: true, align: "center", before: 300, after: 80 }));
+  if (s.signer) out.push(P(s.signer, { size: FS.h2, bold: true, align: "center", after: 80 }));
+  out.push(P((s.college || "") + "                    " + (s.program || "") + "                    " +
+    (s.hijri || "") + " / " + (s.greg || ""), { size: FS.sm, bold: true, align: "center" }));
+
+  var sect = "<w:sectPr><w:headerReference w:type=\"default\" r:id=\"rId10\"/>" +
+    "<w:footerReference w:type=\"default\" r:id=\"rId11\"/>" +
+    "<w:pgSz w:w=\"11906\" w:h=\"16838\"/>" +
+    "<w:pgMar w:top=\"1360\" w:right=\"720\" w:bottom=\"900\" w:left=\"720\" w:header=\"400\" w:footer=\"400\" w:gutter=\"0\"/>" +
+    "<w:cols w:space=\"708\"/><w:bidi/><w:docGrid w:linePitch=\"360\"/></w:sectPr>";
+
+  return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
+    "<w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\" " +
+    "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+    "<w:body>" + out.join("") + sect + "</w:body></w:document>";
+}
+
+function b64bytes(dataUrl) {
+  var b = String(dataUrl).split(",")[1] || "";
+  var bin = atob(b), out = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+function buildDocx(model) {
+  var calc = computeAll(model);
+  var s = model.settings;
+  var doc = buildDocumentXml(model, calc);
+
+  var logo = s.logo || "";
+  var hdrText =
+    P(s.university || "", { size: FS.sm, bold: true, align: "right", after: 0, color: HDR }) +
+    P(s.agency || "", { size: 11, bold: true, align: "right", after: 0, color: "44607A" }) +
+    P(s.deanship || "", { size: 11, bold: true, align: "right", after: 0, color: "44607A" }) +
+    P((s.college || "") + " – " + (s.program || ""), { size: 11, bold: true, align: "right", after: 0, color: "44607A" });
+  var hdrBody;
+  if (logo) {
+    var ar = +s.logoAR || 0.94;
+    var cy = 640080;                       // 1.75 سم تقريباً
+    var cx = Math.round(cy * ar);
+    var g = [7800, 2666];
+    hdrBody = TBLNB(g, [
+      '<w:tr><w:tc><w:tcPr><w:tcW w:w="' + g[0] + '" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr>' + hdrText + '</w:tc>' +
+      '<w:tc><w:tcPr><w:tcW w:w="' + g[1] + '" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr>' +
+      IMG("rId20", cx, cy, "center") + '</w:tc></w:tr>'
+    ]) + P("", { size: 4, after: 0, rule: "9BB6D0" });
+  } else {
+    hdrBody = hdrText + P("", { size: 4, after: 0, rule: "9BB6D0" });
+  }
+  var headerXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ' +
+    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +
+    'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">' +
+    hdrBody + '</w:hdr>';
+  var footerXml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
+    "<w:ftr xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">" +
+    P((s.committee || "لجنة القياس") + "     |     " + (s.college || "") + "     |     " +
+      (s.hijri || "") + " / " + (s.greg || "") + "     |     صفحة",
+      { size: 9, align: "center", after: 0, color: "44607A", pageField: true }) +
+    "</w:ftr>";
+
+  var styles = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
+    "<w:styles xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">" +
+    "<w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii=\"" + FONT + "\" w:hAnsi=\"" + FONT + "\" w:cs=\"" + FONT + "\"/>" +
+    "<w:sz w:val=\"28\"/><w:szCs w:val=\"28\"/><w:rtl/>" +
+    "<w:lang w:val=\"ar-SA\" w:eastAsia=\"ar-SA\" w:bidi=\"ar-SA\"/></w:rPr></w:rPrDefault>" +
+    "<w:pPrDefault><w:pPr><w:bidi/><w:jc w:val=\"right\"/></w:pPr></w:pPrDefault></w:docDefaults>" +
+    "<w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/>" +
+    "<w:qFormat/></w:style></w:styles>";
+
+  var contentTypes = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
+    "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">" +
+    "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>" +
+    "<Default Extension=\"xml\" ContentType=\"application/xml\"/>" +
+    "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>" +
+    "<Override PartName=\"/word/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml\"/>" +
+    "<Override PartName=\"/word/header1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml\"/>" +
+    "<Override PartName=\"/word/footer1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml\"/>" +
+    "<Default Extension=\"png\" ContentType=\"image/png\"/>" +
+    "<Default Extension=\"jpeg\" ContentType=\"image/jpeg\"/>" +
+    "</Types>";
+  var rels = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
+    "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" +
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"word/document.xml\"/>" +
+    "</Relationships>";
+  var docRels = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
+    "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" +
+    "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>" +
+    "<Relationship Id=\"rId10\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/header\" Target=\"header1.xml\"/>" +
+    "<Relationship Id=\"rId11\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer\" Target=\"footer1.xml\"/>" +
+    "</Relationships>";
+
+  var parts = [
+    { name: "[Content_Types].xml", data: strBytes(contentTypes) },
+    { name: "_rels/.rels", data: strBytes(rels) },
+    { name: "word/document.xml", data: strBytes(doc) },
+    { name: "word/_rels/document.xml.rels", data: strBytes(docRels) },
+    { name: "word/styles.xml", data: strBytes(styles) },
+    { name: "word/header1.xml", data: strBytes(headerXml) },
+    { name: "word/footer1.xml", data: strBytes(footerXml) }
+  ];
+  if (logo) {
+    var ext = /image\/jpe?g/.test(logo) ? "jpeg" : "png";
+    parts.push({ name: "word/media/logo." + ext, data: b64bytes(logo) });
+    parts.push({
+      name: "word/_rels/header1.xml.rels", data: strBytes(
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        '<Relationship Id="rId20" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" ' +
+        'Target="media/logo.' + ext + '"/></Relationships>')
+    });
+  }
+  return makeZip(parts);
+}
+
+/* ---------- تصدير Excel (ملف HTML يفتحه Excel مباشرة) ---------- */
+function buildExcelHtml(model) {
+  var calc = computeAll(model), s = model.settings, h = [];
+  h.push('<html lang="ar" dir="rtl" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"><meta name="google" content="notranslate">');
+  h.push('<style>td,th{border:1px solid #9BB6D0;font-family:Arial;font-size:11px;padding:3px;text-align:center}');
+  h.push('th{background:#1F4E79;color:#fff;font-weight:bold}.r{text-align:right}.t{background:#BFD4E8;font-weight:bold}</style></head>');
+  h.push('<body dir="rtl"><table><tr><td colspan="15" class="t">' + esc(s.title || "") + ' — ' + esc(s.program || "") + '</td></tr></table><br>');
+  calc.axes.forEach(function (a, ai) {
+    h.push('<table><tr><td colspan="15" class="t">المحور ' + (ORDINALS[ai] || ai + 1) + ': ' + esc(a.name) + '</td></tr>');
+    h.push('<tr><th rowspan="2">م</th><th rowspan="2">العبارة</th>' +
+      OPTIONS.map(function (o) { return '<th colspan="2">' + o + '</th>'; }).join("") +
+      '<th rowspan="2">% الموافقة</th><th rowspan="2">المتوسط الحسابي</th><th rowspan="2">درجة الموافقة</th></tr>');
+    h.push('<tr>' + OPTIONS.map(function () { return '<th>ن</th><th>%</th>'; }).join("") + '</tr>');
+    a.items.forEach(function (it, i) {
+      var c = '<tr><td>' + (i + 1) + '</td><td class="r">' + esc(it.text) + '</td>';
+      for (var k = 0; k < 5; k++) c += '<td>' + Math.round(+it.counts[k] || 0) + '</td><td>' + pc(it.pcts[k]) + '</td>';
+      c += '<td>' + pc(it.agree) + '</td><td>' + nm(it.mean) + '</td><td>' + it.degree + '</td></tr>';
+      h.push(c);
+    });
+    h.push('<tr class="t"><td colspan="12">المحور ككل</td><td>' + pc(a.agree) + '</td><td>' + nm(a.mean) + '</td><td>' + a.degree + '</td></tr></table><br>');
+  });
+  h.push('<table><tr><th>المحور</th><th>اسم المحور</th><th>نسبة الموافقة</th><th>المتوسط الحسابي</th></tr>');
+  calc.axes.forEach(function (a, i) {
+    h.push('<tr><td>' + (ORDINALS[i] || i + 1) + '</td><td class="r">' + esc(a.name) + '</td><td>' + pc(a.agree) + '</td><td>' + nm(a.mean) + '</td></tr>');
+  });
+  h.push('<tr class="t"><td colspan="2">المتوسط العام</td><td>' + pc(calc.overall / 5) + '</td><td>' + nm(calc.overall) + '</td></tr></table>');
+  h.push('</body></html>');
+  return h.join("");
+}
+
+var SRC = document.documentElement.outerHTML;
+var DEFAULT_DB = /*DB_START*/ [{"name": "تقويم البرنامج", "audience": "الطلاب", "axes": [{"name": "المساعدة والدعم اللذان قدما لتعليمي", "items": ["أتيح لي الإرشاد الأكاديمي والمهني المناسب خلال فترة دراستي بالبرنامج.", "كانت هيئة التدريس متاحة للإرشاد والمشورة عندما كنت أحتاج للتحدث إليهم.", "شجعتني هيئة التدريس بالبرنامج على أن أقدم أفضل ما عندي.", "قدمت هيئة التدريس بالبرنامج تغذية راجعة على عملي.", "لدى هيئة التدريس بالبرنامج معرفة كبيرة بمحتوى المقررات التي يدرسونها.", "كانت هيئة التدريس بالبرنامج متحمسة للعمل.", "اهتمت هيئة التدريس بالبرنامج بمدى تـقدم طلابهم."]}, {"name": "المصادر الخاصة بدعم تعليمي", "items": ["كانت المواد الدراسية المساعدة بالمقررات حديثة ومفيدة.", "كانت مصادر المكتبة مناسبة ومتاحة كلما كنت أحتاج لها.", "اتسمت تجهيزات القاعات (للمحاضرات، والمعامل، والدروس) بالجودة.", "كانت تجهيزات الحاسب كافية لاحتياجاتي.", "توفرت التجهيزات المناسبة للأنشطة اللامنهجية (بما في ذلك التجهيزات الخاصة بالرياضة والترفيه).", "هناك مرافق مناسبة لأداء الشعائر الدينية.", "كانت برامج التدريب الميداني (أو سنة الامتياز) فعالة في تطوير مهاراتي."]}, {"name": "تقويم التعليم الذي حصلت عليه", "items": ["ما تعلمته في هذا البرنامج (القسم) سيكون مهماً لمستقبلي.", "لقد ساعدني البرنامج في تطوير الاهتمام الكافي لدي للسعي في الاستمرار في تحديث معلوماتي حسبما يُستجد في مجال دراستي.", "لقد طوّر البرنامج قدرتي على استقصاء وحل المشكلات الجديدة.", "لقد طوّر البرنامج قدرتي على العمل بفاعلية مع المجموعات.", "لقد حسّن البرنامج مهاراتي في الاتصال.", "لقد ساعدني البرنامج في تطوير مهاراتي الأساسية في استخدام التقنية لدراسة القضايا والتعبير عن النتائج.", "لقد طورت المعارف والمهارات اللازمة لمهنتي التي اخترتها."]}, {"name": "التقويم العام", "items": ["أشعر بالرضا بشكل عام عن مستوى جودة خبرتي التعليمية في البرنامج."]}]}, {"name": "تقويم خبرة الطالب", "audience": "الطلاب", "axes": [{"name": "المشورة والدعم", "items": ["كان من السهل عليّا أن أجد المعلومات الخاصة بالجامعة وأقسامها (برامجها) قبل أن أسجل فيها.", "عندما بدأت في هذا البرنامج ، ساعدني برنامج التهيئة المعدّ للطلبة المستجدين.", "هناك فرص كافية في هذا البرنامج للحصول على المشورة فيما يتعلق بدراستي ومستقبلي المهني.", "إجراءات التسجيل للمقررات سهلة وذات كفاءة."]}, {"name": "مصادر وتجهيزات التعلم", "items": ["الفصول الدراسية (بما في ذلك قاعات المحاضرات، والمعامل، وهكذا) جذابة ومريحة.", "مرافق وتجهيزات الحاسب المخصصة للطلبة كافية لاحتياجاتي.", "يساعدني منسوبو المكتبة عندما أحتاج لذلك.", "أشعر بالرضا عن جودة ومقدار المواد التعليمية المتاحة لي بالمكتبة.", "تفتح المكتبة أبوابها في أوقات ملائمة.", "هناك مرافق متاحة للأنشطة اللا منهجية (بما في ذلك الأنشطة الرياضية والترفيهية).", "هناك مرافق مناسبة متاحة بالمبنى لأداء الشعائر الدينية."]}, {"name": "التعلم والتعليم", "items": ["يهتم معظم أعضاء هيئة التدريس الذين أتعامل معهم اهتماماً حقيقياً بمدى تقدمي.", "هيئة التدريس بالبرنامج عادلون في معاملتهم للـطلبة.", "تشجعني المقررات والواجبات التي آخذها على دراسة الأفكار الجديدة وعلى التعبير عن آرائي.", "تزداد قدرتي على دراسة وحل المشكلات الجديدة وغير العادية، نتيجة لدراستي.", "تتحسن قدرتي بشكل فعال على التعبير عن نتائج أبحاثي التي أقوم بها، نتيجة لدراستي.", "يحفزني البرنامج (القسم) الذي أدرس به على المزيد من التعلم.", "إن المعارف والمهارات التي أتعلمها ذات أهمية بالنسبة لمستقبلي الوظيفي.", "إنني أتعلم كيف أعمل بشكل فعال مع الأنشطة الجماعية."]}, {"name": "التقويم العام", "items": ["أشعر بالرضا بشكل عام عن مستوى جودة خبرتي التعليمية في البرنامج."]}]}, {"name": "جودة الإرشاد الأكاديمي والمهني والنفسي والاجتماعي", "audience": "الطلاب", "axes": [{"name": "الإرشاد الأكاديمي", "items": ["يتم تزويدي ببيانات المرشد الأكاديمي في بداية كل فصل دراسي.", "يسهل التواصل بيني وبين المرشد الأكاديمي.", "يوضح لي المرشد الأكاديمي الصلة بين المقررات الدراسيةٌ وتفاصيل الخطة الدراسية للبرنامج.", "يساعدني المرشد الأكاديمي في عمليات التسجيل والحذف والإضافة أثناء عملية التسجيل في بداية الفصل الدراسي بما يتوافق مع المعدل التراكمي.", "يلتزم المرشد الأكاديمي بالتواجد خلال الساعات المخصصة للإرشاد.", "يتابع المرشد الأكاديمي مدى تقدمي خلال الفصل الدراسي.", "أشعر بالرضا بشكل عام عن جودة خدمات الإرشاد الأكاديمي بالبرنامج."]}, {"name": "الإرشاد النفسي", "items": ["يساعدني المرشد الأكاديمي في حل المشكلات النفسية التي قد تواجهي.", "يحافظ المرشد الأكاديمي على سرية معلوماتي.", "يقوم المرشد الأكاديمي بتعريف الطلاب بأماكن العيادات النفسية بالجامعة.", "أشعر بالرضا بشكل عام عن جودة خدمات الإرشاد النفسي بالبرنامج."]}, {"name": "الإرشاد المهني", "items": ["يحدد لي المرشد الأكاديمي المهارات التي يجب أن اكتسبها والتي تتوافق مع احتياجات سوق العمل.", "يساعدني المرشد الأكاديمي في التعرف على المجالات المهنية وفرص التوظيف ومزايا ومهام كل وظيفة.", "يشجعني المرشد الأكاديمي على تطوير مهاراتي في مجال تخصصي.", "يحثني المرشد الأكاديمي على حضور الدورات المتخصصة وملتقيات التوظيف.", "يحثني المرشد الأكاديمي على حضور الدورات المتخصصة وملتقيات التوظيف."]}, {"name": "الإرشاد الاجتماعي", "items": ["يتجاوب المرشد الاجتماعي معي لحل مشكلاتي الاجتماعية.", "يشجعني المرشد الأكاديمي على تبني القيم الاجتماعية الإيجابية.", "يشجعني المرشد الأكاديمي على اكتساب المهارات الاجتماعية.", "يقوم المرشد الأكاديمي بعقد لقاءات جماعية للطلاب.", "يشجعني المرشد الأكاديمي على المشاركة بالأنشطة الاجتماعية داخل وخارج الجامعة."]}]}, {"name": "جودة الخدمات الطلابية", "audience": "الطلاب", "axes": [{"name": "أسئلة عامة", "items": ["يُجيب مسؤول شؤون الطلاب عن كافة استفسارات الطلبة بالشكل والسرعة المطلوبة.", "يُقدّم مسؤول شؤون الطلاب كتيبات تساعد الطالب على التعرف على الأنظمة واللوائح بالكلية والجامعة.", "أماكن تقديم الخدمات الطلابية مناسبة.", "يُنظّم البرنامج دورات تدريبية لتنمية مهارات الطلاب.", "أشعر بالرضا بشكلٍ عام عن مستوى جودة الخدمات المقدمة من عمادة شؤون الطلاب بالجامعة."]}, {"name": "الأنشطة الثقافية", "items": ["يُتيح البرنامج للطلبة فرصة المشاركة في الأنشطة الثقافية.", "الأنشطة الثقافية في البرنامج مُعلنة ومُفعّلة.", "الجوائز المخصصة للأنشطة الثقافية مناسبة.", "توقيت تقديم الأنشطة الثقافية بالجامعة مناسب.", "أشعر بالرضا بشكل عام عن مستوى جودة الأنشطة الثقافية بالبرنامج."]}, {"name": "الأنشطة الرياضية", "items": ["يُتيح البرنامج للطلبة فرصة المشاركة في الأنشطة الرياضية.", "الأنشطة الرياضية في البرنامج مُعلنة ومُفعّلة.", "الجوائز المخصصة للأنشطة الرياضية مناسبة.", "توقيت تقديم الأنشطة الرياضية بالبرنامج مناسب.", "أشعر بالرضا بشكلٍ عام عن مستوى جودة الأنشطة الرياضية بالبرنامج."]}, {"name": "خدمات التغذية", "items": ["موقع الكافيتريا مناسب للطلبة.", "تُلبي محتويات الكافيتريا رغبات الطلبة.", "أسعار خدمات الكافيتريا مناسبة.", "تتميز محتويات الكافيتريا (المداخل - منطقة تحضير الطعام - الكراسي - الطاولات -الأرضيات ) بالنظافة.", "أشعر بالرضا بشكل عام عن مستوى جودة خدمات التغذية."]}, {"name": "الخدمات الطبية", "items": ["يتوافر في الجامعة عيادة طبية لتقديم الخدمات الطبية للطلبة.", "يتسم أداء منسوبي العيادة الطبية بالكفاءة في تقديم الخدمات الصحية للطلبة.", "يتم الحصول على الخدمات الطبية بسهولة وسرعة.", "أشعر بالرضا بشكل عام عن مستوى جودة الخدمات الطبية بالجامعة."]}, {"name": "خدمات النقل للطالبات", "items": ["وفر لي البرنامج خدمة النقل إلى مقر الكلية.", "سهولة إجراءات الحصول على خدمة النقل.", "أشعر بالرضا بشكل عام عن مستوى جودة خدمات النقل."]}, {"name": "خدمات القبول والتسجيل", "items": ["أستفيد من خدمات بوابة النظام الأكاديمي للطلاب.", "تتميز خدمات بوابة النظام الأكاديمي للطلاب بالسهولة والوضوح.", "تصلني التنبيهات التي ترسلها عمادة القبول والتسجيل باستمرار.", "يجيب منسوبو عمادة القبول والتسجيل على الاستفسارات بشكل سريع ودقيق.", "أشعر بالرضا بشكلٍ عام عن الخدمات التي تقدمها عمادة القبول والتسجيل."]}, {"name": "خدمات التعلم الالكتروني والتعليم عن بعد", "items": ["تتوافر (الدورات / الورش التدريبية / المحاضرات) المؤهلة لاستخدام نظم إدارة التعلم الالكتروني (بلاك بورد) لطلاب البرنامج.", "يتم تقديم التغذية الراجعة لجميع التكليفات والأبحاث على نظام البلاك بورد في وقتها المناسب.", "يقوم أستاذ المقرر بتقييم أبحاثي من حيث الأمانة العلمية باستخدام أداة كشف الاقتباس Safe Assign.", "أشعر بالرضا عن الخدمات المقدمة من عمادة التعلم الالكتروني والتعليم عن بعد."]}]}, {"name": "تقييم المكتبة وخدماتها ومصادرها الرقمية", "audience": "الطلاب", "axes": [{"name": "خدمات المكتبة", "items": ["يساعدني موظف المكتبة في كيفية البحث في فهارس المكتبة.", "يساعدني موظف المكتبة في الوصول إلى الكتب المطلوبة على رفوف المكتبة.", "تتوافر\" خدمة توفير المُراجع\" التي تتم من خلالها الإجابة عن الأسئلة التخصصية بواسطة أمناء المكتبة.", "يتم الحصول على الكتب المطلوبة داخل المكتبة بسهولة ويُسر."]}, {"name": "الخدمات الالكترونية", "items": ["يتوفر بالموقع الالكتروني للمكتبة فهرس آلي للبحث في مصادر المعلومات.", "تتيح المكتبة الرابط الالكتروني للمكتبة الرقمية السعودية SDL.", "يتوفر بموقع المكتبة أدلة إرشادية توضح استخدام الخدمات الرقمية و المرجعية.", "ألية البحث في المصادر الرقمية واضحة.", "أشعر بالرضا عن الخدمات التي تقدمها المكتبة."]}]}, {"name": "تقويم مصادر التعلم", "audience": "الطلاب", "axes": [{"name": "المكتبة", "items": ["يتم الحصول على الكتب المطلوبة داخل المكتبة بسهولة ويُسر.", "تتوافر أعداد مناسبة من المراجع لكل تخصص.", "تتوافر أعداد مناسبة من الدوريات العلمية المتخصصة.", "تتوفر في المكتبة خدمات الاستعارة.", "لوائح المكتبة وسياساتها مُعلنة و تتسم بالمرونة.", "التوعية المعلوماتية عن المكتبة وخدماتها المختلفة كافية.", "مصادر المعلومات المتوفرة بالمكتبة تتسّم بالحداثة.", "مصادر المعلومات مرتبة بشكل جيد بحيث يسهل الوصول اليها."]}, {"name": "مصادر التعلم الرقمية", "items": ["مصادر المعلومات الرقمية المتوفرة تفي بالغرض المرجو منها.", "توفر المكتبة الرقمية قواعد ومصادر المعلومات الالكترونية باللغتين العربية والانجليزية.", "تتوفر قواعد و مصادر المعلومات الالكترونية بالمكتبة الرقمية بشكل كاف في تخصصي.", "تتميز قواعد المعلومات الالكترونية المتوفرة، بسهولة الحصول على المقالات البحثية والمراجع العلمية."]}, {"name": "المنصات الرقمية", "items": ["المنصات الرقمية تتيح للطلبة التعليم في أي وقت وفي أي مكان.", "لدى الطلبة المهـارات اللازمـة لاسـتخدام المنصـات الرقميـة في التعلم الذاتي.", "لدى الطلبة المهـارات اللازمـة لاسـتخدام المنصـات الرقميـة في التعلم الذاتي.", "آلية التعامل مع نظام البلاك بورد سهلة وواضحة.", "توجد برامج تدريبية تمكن الطلاب من استخدام نظام البلاك بورد.", "يوفر البلاك بورد طرقاً متعددة لتقويم الطلاب.", "يتم استخدام نظام البلاك بورد في إدارة ملفات المقرر وتبادلها مع الطلاب.", "يساعد نظام البلاك بورد في سهولة التواصل بين الطلاب وأستاذ المقرر.", "أرى أنـــه مـــن الضـــروري اســـتخدام طلبـــة الجامعـــة للمحركــات البحثيــة علــى الإنترنــت لتحقيــق أقصــى استفادة.", "أشـعر بالرضـا التــام عـن تجربتــي في اسـتخدام المنصّـات الرقمية."]}, {"name": "أسئلة عامة", "items": ["تتنوع مصادر التعلم داخل البرنامج لتلائم متطلبات البرنامج وأعداد الطلاب.", "في حال وجود مصادر تعلم أخرى، ما مدى رضائك عنها ؟"]}]}, {"name": "مدى مناسبة المرافق والتجهيزات وعمليات الصيانة", "audience": "الطلاب", "axes": [{"name": "مدى مناسبة المرافق والتجهيزات وعمليات الصيانة", "items": ["يتسم مبنى البرنامج ببيئة متكاملة الخدمات.", "تتناسب الطاقة الاستيعابية الإجمالية لقاعات التدريس مع أعداد الطلاب.", "تتوفر بالقاعات الدراسية إضاءة مناسبة وتهوية جيدة.", "تزود القاعات بالوسائل السمعية والبصرية اللازمة للعملية التعليمية.", "تتلاءم مرافق المبنى مع متطلبات ذوي الاحتياجات الخاصة.", "تتوافر أماكن مناسبة للتواصل بين أعضاء هيئة التدريس والطلاب خلال الساعات المكتبية.", "تتوافر للطلبة المرافق المناسبة لأداء الأنشطة الرياضية والثقافية وغيرها.", "تتوافر أماكن ملائمة لإقامة الصلاة.", "تتوافر مرافق تقديم طعام كافية العدد ومناسبة لاحتياجات الطلبة.", "تتوافر أماكن لاستراحات الطلبة مناسبة من حيث العدد والتأثيث.", "يتوفر بالمبنى أماكن لمساعدة الطلبة على الاستذكار.", "تتوافر للطلاب مواقف للسيارات مناسبة وكافية من حيث العدد.", "تتوافر الخدمات المالية والمصرفية بصورة كافية.", "تتوافر متطلبات الصحة والسلامة والأمن بالمبنى.", "تتوافر إجراءات أمنية لحماية المباني الجامعية بكفاءة.", "يتم تطبيق الإجراءات الاحترازية لمكافحة فيروس كورونا داخل مرافق الكلية.", "تتوافر المعقمات وأدوات النظافة بدورات المياه.", "تُجرى اعمال النظافة والتخلص من النفايات بصورة مستمرة وبكفاءة."]}]}, {"name": "مدى مناسبة المعامل والمختبرات والتجهيزات الحاسوبية والتقنية", "audience": "الطلاب", "axes": [{"name": "مدى مناسبة المعامل والمختبرات والتجهيزات الحاسوبية والتقنية والمواد الملائمة للتخصص والكافية لإجراء البحوث والدراسات العلمية", "items": ["تتناسب الطاقة الاستيعابية للمعامل والمختبرات مع أعداد الطلاب.", "تتوفر بالمعامل والمختبرات إضاءة مناسبة وتهوية جيدة.", "تتوفر مساحة مخصصة لكل طالب داخل المعمل.", "المعامل والمختبرات مجهزة بالوسائل السمعية والبصرية اللازمة للعملية التعليمية.", "تتوافر الأجهزة والمواد المعملية اللازمة للتجارب المشار إليها في المقررات الدراسية.", "ملاءمة عدد الفنيين بالمختبرات والمعامل.", "أشعر بالرضا بشكل عام عن كفاءة الفنيين في المعامل والمختبرات.", "تتناسب عدد أجهزة الحاسب الآلي في المعامل الدراسية مع أعداد الطلبة.", "يتم تدريب الطلبة داخل المعامل والمختبرات على أجهزة متخصصة تتسم بالكفاءة والحداثة.", "تتم أعمال الصيانة الدورية للأجهزة بصورة منتظمة.", "تتوافر متطلبات الأمن والسلامة في المعامل والمختبرات.", "توجد تجهيزات ضد الحرائق بالقرب من المعامل والمختبرات.", "تتوافر داخل المعامل والمختبرات تجهيزات الاسعافات الأولية.", "يتم تطبيق الإجراءات الاحترازية لمكافحة فايروس كورونا داخل المعامل والمختبرات.", "تتوافر المعقمات داخل المعامل والمختبرات."]}]}, {"name": "جودة خدمات التقنية", "audience": "الطلاب", "axes": [{"name": "جودة الخدمات التقنية", "items": ["يُتيح البرنامج للطلاب الخدمات على الموقع الالكتروني.", "الموقع الالكتروني للبرنامج متاح من داخل وخارج الجامعة.", "يُقدم الموقع الالكتروني للبرنامج معلومات وافية.", "يضمن الموقع الالكتروني سرّية المعلومات الخاصة بي.", "يُوفر الموقع الالكتروني للجامعة المساعدة الافتراضية (جوف) على مدار الساعة للإجابة على الاستفسارات والأسئلة.", "تغطية شبكة الإنترنت اللاسلكية (الواي فاي) كافية.", "أشعر بالرضا بشكل عام عن مستوى جودة خدمات التقنية."]}]}, {"name": "مدى مناسبة المرافق والتجهيزات وعمليات الصيانة", "audience": "أعضاء هيئة التدريس", "axes": [{"name": "مدى مناسبة المرافق والتجهيزات وعمليات الصيانة", "items": ["يتسم مبنى البرنامج ببيئة متكاملة الخدمات.", "تتناسب الطاقة الاستيعابية الإجمالية لقاعات التدريس مع أعداد الطلاب.", "تتوفر بالقاعات الدراسية إضاءة مناسبة وتهوية جيدة.", "القاعات الدراسية مجهزة بالوسائل السمعية والبصرية اللازمة للعملية التعليمية.", "تتوفر وسائل الاتصال بأنواعها داخل مرافق المبنى ومع إدارة الجامعة.", "تتوفر أجهزة حاسوب حديثة مناسبة ومتاحة لأعضاء هيئة التدريس.", "تتوفر قواعد بيانات يسهل الحصول عليها عند الحاجة.", "تتوفر لأعضاء هيئة التدريس أجهزة الماسح الضوئي والتصوير والطباعة.", "تتلاءم مرافق المبنى مع متطلبات ذوي الاحتياجات الخاصة.", "تتوافر أماكن مناسبة للتواصل بين أعضاء هيئة التدريس والطلاب خلال الساعات المكتبية.", "تتوافر قاعات كافية لاجتماعات ولقاءات أعضاء هيئة التدريس.", "تتوافر أماكن ملائمة لإقامة الصلاة.", "تتوافر المرافق المناسبة لأداء الأنشطة الرياضية والثقافية وغيرها لأعضاء هيئة التدريس.", "تتوافر مرافق تقديم طعام كافية العدد ومناسبة لاحتياجات أعضاء هيئة التدريس.", "تتوافر لأعضاء هيئة التدريس مواقف للسيارات مناسبة وكافية من حيث العدد.", "تتوافر متطلبات الصحة والسلامة والامن بالمبنى.", "تتوافر إجراءات أمنية لحماية المباني الجامعية بكفاءة.", "يتم تطبيق الإجراءات الاحترازية لمكافحة فايروس كورونا داخل مرافق الكلية.", "تتوافر المعقمات وأدوات النظافة بدورات المياه.", "تُجرى أعمال النظافة والتخلص من النفايات بصورة دورية وبكفاءة."]}]}, {"name": "مدى مناسبة المعامل والمختبرات والتجهيزات الحاسوبية والتقنية", "audience": "أعضاء هيئة التدريس", "axes": [{"name": "مدى مناسبة المعامل والمختبرات والتجهيزات الحاسوبية والتقنية والمواد الملائمة للتخصص والكافية لإجراء البحوث والدراسات العلمية", "items": ["تتناسب الطاقة الاستيعابية للمعامل والمختبرات مع أعداد الطلاب.", "تتوفر بالمعامل والمختبرات إضاءة مناسبة وتهوية جيدة.", "تتوفر مساحة مخصصة لكل طالب داخل المعمل.", "المعامل والمختبرات مجهزة بالوسائل السمعية والبصرية اللازمة للعملية التعليمية.", "تتوافر الأجهزة والمواد المعملية اللازمة للتجارب المشار إليها في المقررات الدراسية.", "ملاءمة عدد الفنيين بالمختبرات والمعامل.", "أشعر بالرضا بشكل عام عن كفاءة الفنيين في المعامل والمختبرات.", "تتناسب عدد أجهزة الحاسب الآلي في المعامل الدراسية مع أعداد الطلبة.", "يتم تدريب الطلبة داخل المعامل والمختبرات على أجهزة متخصصة تتسم بالكفاءة والحداثة.", "تتم أعمال الصيانة الدورية للأجهزة بصورة منتظمة.", "تتوافر متطلبات الأمن والسلامة في المعامل والمختبرات.", "توجد تجهيزات ضد الحرائق بالقرب من المعامل والمختبرات.", "تتوافر داخل المعامل والمختبرات تجهيزات الاسعافات الأولية.", "يتم تطبيق الإجراءات الاحترازية لمكافحة فايروس كورونا داخل المعامل والمختبرات.", "تتوافر المعقمات داخل المعامل والمختبرات."]}]}, {"name": "تقييم المكتبة وخدماتها ومصادرها الرقمية", "audience": "أعضاء هيئة التدريس", "axes": [{"name": "خدمات المكتبة", "items": ["يساعدني موظف المكتبة في كيفية البحث في فهارس المكتبة.", "يساعدني موظف المكتبة في الوصول إلى الكتب المطلوبة على رفوف المكتبة.", "تتوافر\" خدمة توفير المُراجع\" التي تتم من خلالها الإجابة عن الأسئلة التخصصية بواسطة أمناء المكتبة.", "يتم الحصول على الكتب المطلوبة داخل المكتبة بسهولة ويُسر."]}, {"name": "الخدمات الالكترونية", "items": ["يتوفر بالموقع الالكتروني للمكتبة فهرس آلي للبحث في مصادر المعلومات.", "تتيح المكتبة الرابط الالكتروني للمكتبة الرقمية السعودية SDL.", "يتوفر بموقع المكتبة أدلة إرشادية توضح استخدام الخدمات الرقمية و المرجعية.", "ألية البحث في المصادر الرقمية واضحة.", "أشعر بالرضا عن الخدمات التي تقدمها المكتبة."]}]}, {"name": "تقويم مصادر التعلم", "audience": "أعضاء هيئة التدريس", "axes": [{"name": "المكتبة", "items": ["يتم الحصول على الكتب المطلوبة داخل المكتبة بسهولة ويُسر.", "تتوافر أعداد مناسبة من المراجع لكل تخصص.", "تتوافر أعداد مناسبة من الدوريات العلمية المتخصصة.", "تتوفر في المكتبة خدمات الاستعارة.", "لوائح المكتبة وسياساتها مُعلنة و تتسم بالمرونة.", "التوعية المعلوماتية عن المكتبة وخدماتها المختلفة كافية.", "مصادر المعلومات المتوفرة بالمكتبة تتسّم بالحداثة.", "مصادر المعلومات مرتبة بشكل جيد بحيث يسهل الوصول اليها."]}, {"name": "مصادر التعلم الرقمية", "items": ["مصادر المعلومات الرقمية المتوفرة تفي بالغرض المرجو منها.", "توفر المكتبة الرقمية قواعد ومصادر المعلومات الالكترونية باللغتين العربية والانجليزية.", "تتوفر قواعد و مصادر المعلومات الالكترونية بالمكتبة الرقمية بشكل كاف في تخصصي.", "تتميز قواعد المعلومات الالكترونية المتوفرة، بسهولة الحصول على المقالات البحثية والمراجع العلمية."]}, {"name": "المنصات الرقمية", "items": ["المنصات الرقمية تتيح للطلبة التعليم في أي وقت وفي أي مكان.", "لدى الطلبة المهـارات اللازمـة لاسـتخدام المنصـات الرقميـة في التعلم الذاتي.", "لدى الطلبة المهـارات اللازمـة لاسـتخدام المنصـات الرقميـة في التعلم الذاتي.", "آلية التعامل مع نظام البلاك بورد سهلة وواضحة.", "توجد برامج تدريبية تمكن الطلاب من استخدام نظام البلاك بورد.", "يوفر البلاك بورد طرقاً متعددة لتقويم الطلاب.", "يتم استخدام نظام البلاك بورد في إدارة ملفات المقرر وتبادلها مع الطلاب.", "يساعد نظام البلاك بورد في سهولة التواصل بين الطلاب وأستاذ المقرر.", "أرى أنـــه مـــن الضـــروري اســـتخدام طلبـــة الجامعـــة للمحركــات البحثيــة علــى الإنترنــت لتحقيــق أقصــى استفادة.", "أشـعر بالرضـا التــام عـن تجربتــي في اسـتخدام المنصّـات الرقمية."]}, {"name": "أسئلة عامة", "items": ["تتنوع مصادر التعلم داخل البرنامج لتلائم متطلبات البرنامج وأعداد الطلاب.", "في حال وجود مصادر تعلم أخرى، ما مدى رضائك عنها ؟"]}]}, {"name": "جودة وكفاية الخدمات المقدمة", "audience": "أعضاء هيئة التدريس", "axes": [{"name": "خدمات التقنية", "items": ["يسهل الوصول إلى الخدمات التي تقدمها الجامعة عن طريق موقعها الالكتروني.", "الموقع الالكتروني للبرنامج متاح من داخل وخارج الجامعة.", "تُقدم الصفحة الالكترونية للبرنامج معلومات وافية.", "يضمن الموقع الالكتروني سرية المعلومات الخاصة بي.", "يُوفّر الموقع الالكتروني للجامعة المساعدة الافتراضية (جوف) على مدار الساعة للإجابة على الاستفسارات والأسئلة.", "تتوفر أجهزة حاسب آلي كافية داخل مكاتب أعضاء هيئة التدريس.", "تتوفر خدمات الصيانة التقنية عند الحاجة لها.", "تتوفر خدمات الدعم الفني عند الحاجة لها.", "تغطية شبكة الإنترنت اللاسلكية (الواي فاي) كافية.", "تتوفر البرامج الإلكترونية اللازمة لدعم عملية التعليم والتعلم (مثال: برامج ميكروسوفت المكتبية وبرامج التحليل الاحصائي، الخ...).", "أشعر بالرضا بشكل عام عن مستوى جودة خدمات التقنية المقدمة لي."]}, {"name": "خدمات الاسكان الجامعي لأعضاء هيئة التدريس السعوديين", "items": ["تتسم إجراءات الحصول على الوحدات السكنية باليسر والسهولة.", "اللوائح المنظمة في توزيع الوحدات السكنية مرضية.", "تعمل الإدارة على تذليل الصعوبات التي قد تواجه المستفيدين من خدمات الإسكان.", "تتابع الإدارة الصيانة اللازمة للمرافق والوحدات السكنية مع الجهات ذات العلاقة.", "توفر الإدارة الجو الاجتماعي المناسب في الإسكان الجامعي.", "توفر الإدارة أماكن مناسبة لأداء الواجبات الدينية.", "مناسبة وكفاية المسطحات الخضراء داخل إسكان أعضاء هيئة التدريس.", "مناسبة وكفاية المواقف المخصصة للسيارات داخل إسكان أعضاء هيئة التدريس.", "التواجد والتنظيم الأمني داخل إسكان أعضاء هيئة التدريس."]}, {"name": "خدمات الأمن والصحة والسلامة المهنية", "items": ["تتسم إجراءات الدخول لمباني ومرافق الجامعة بالسهولة واليسر.", "المباني الجامعية مجهزة بوسائل الأمن والسلامة.", "إرشادات الأمن والسلامة داخل الجامعة واضحة بالنسبة لي.", "تتوفر وسائل السلامة داخل المختبرات والمعامل.", "خدمات الأمن والسلامة كافية لضمان سلامة أعضاء هيئة التدريس.", "تم تدريبي على خطة الطوارئ في حالة حدوث مكروه لا سمح الله.", "تتوفر الخدمات الطبية اللازمة داخل الحرم الجامعي.", "يتم تقديم برامج توعية وتثقيف صحي لأعضاء هيئة التدريس.", "خدمات الأمن والسلامة كافية في مرافق الجامعة.", "عمليات الحراسات الأمنية لمباني ومرافق الجامعة ضد السرقة او التخريب تتميز بالكفاءة.", "مشاركة الأمن الجامعي في تنظيم المناسبات والإحتفالات تتم بفاعلية وكفاءة.", "رُقي أسلوب وحسن تعامل رجال الأمن والسلامة مع الآخرين.", "كفاءة تعامل رجال الأمن الجامعي مع المشكلات.", "التزام رجال الأمن الجامعي بالمظهر العام داخل الجامعة.", "سهولة وسرعة إجراءات استخراج تصاريح المركبات.", "يتم تسجيل المخالفات المرورية على المخالفين.", "يتم ضبط مواقف السيارات وحمايتها من السرقة أو التخريب.", "-يتم تنظيم الحركة المرورية بالطرق والمواقف بالمباني الجامعية."]}, {"name": "خدمات البحث العلمي والمؤتمرات", "items": ["يتم تشجيع ومساعدة أعضاء هيئة التدريس للقيام بأبحاث مشتركة مع زملائهم في مؤسسات تعليمية أخرى وطنية أو دولية.", "يتم تشجيع أعضاء هيئة التدريس على الربط بين المقررات التي يدرّسونها وأبحاثهم وأنشطتهم العلمية.", "يتم تقييم الأنشطة البحثية والعلمية ضمن محكّات تقويم الأداء والترقية.", "يتم توفير الدعم المالي لأعضاء هيئة التدريس لمساعدتهم في إجراء مشروعاتهم البحثية.", "يتم توفير ميزانية ومرافق كافية ومناسبة لإجراء البحوث.", "يلتزم أعضاء هيئة التدريس في البرنامج، بأخلاقيات البحث العلمي عند إجراء البحوث.", "توجد آلية محددة ومرنة لحضور المؤتمرات العلمية.", "تتاح لي الفرصة الكافية لحضور المؤتمرات العلمية."]}, {"name": "خدمات التوظيف", "items": ["يعطى جميع أعضاء هيئة التدريس فرصاً عادلة للتطوير الوظيفي.", "يتوفر التدريب المناسب للتطوير المهني لأعضاء هيئة التدريس.", "يوجد نظام فعّال لتلقي الشكاوى والتظلّم وحل النزاعات.", "نظام الرواتب والبدلات جيد وفعّال.", "عملية توزيع أعباء التدريس تتم بإنصاف.", "آليات الترقية وإجراءاتها معلنة بشكل واضح.", "آليات الترقية وإجراءاتها ُتطبّق بطريقة عادلة.", "احصل على مستحقاتي المالية دون تأخير."]}, {"name": "التحفيز والاثابة", "items": ["توجد آلية واضحة ومُعلنة لتحفيز وإثابة أعضاء هيئة التدريس.", "يتم تقدير ومكافأة الأداء المتميز لعضو هيئة التدريس على مختلف المستويات.", "يتم تقديم حوافز مادية مناسبة لأعضاء هيئة التدريس المتميزين.", "يتم تحفيز أعضاء هيئة التدريس على البحث والنشر العلمي.", "يتم تكريم أعضاء هيئة التدريس المتميزين في مجال التدريس.", "يتم تكريم أعضاء هيئة التدريس الحاصلين على إنجازات بحثية متميزة.", "يتم تحفيز أعضاء هيئة التدريس للمساهمة في خدمة المجتمع."]}]}, {"name": "تقويم مخرجات البرنامج وخصائص خريجيه", "audience": "الخريجون", "axes": [{"name": "الخصائص والقدرات", "items": ["مهارات حل المشكلات.", "المبادرة وريادة الأعمال.", "التخطيط والتنظيم.", "المهارات الشخصية.", "الاتجاة الايجابي.", "الموثوقية والانضباط.", "إدارة الذات.", "الاستعداد للتعلم.", "المرونة وإدارة الأولويات.", "التواصل.", "العمل الجماعي.", "المهارات التنقية والرقمية."]}, {"name": "مخرجات تعلم البرنامج", "items": ["يحدد المبادئ والنظريات والمفاهيم الاساسية الخاصة بمجالات التمويل والاستثمار.", "يوضح الممارسات والعمليات المالية والاستثمارية ودورها في تلبية احتياجات ذوي المصلحة.", "يشرح منهجية البحث واساليبه.", "يحلل المشكلات المالية والاستثمارية للوصول الي حلول مبتكره باستخدام الأدوات والنماذج المالية المناسبة.", "يطبق مبدأ العائد والمخاطرة على القرارات الاستثمارية.", "يقيم الأسواق والأدوات المالية لاتخاذ القرارات التمويلية والاستثمارية.", "يستخدم التقنيات الحديثة وتكنولوجيا المعلومات في مجال التمويل والاستثمار.", "يتفاعل مع فرق العمل بمرونة وفعالية ويسعي الي تطوير أدائها.", "ينمي الذات والتعلم الابداعي المستمر.", "يشارك بفعالية في المسؤولية المجتمعية لتعزيز المواطنة مع التزامه بالقيم الأخلاقية والمعايير المهنية."]}, {"name": "خصائص خريجي البرنامج", "items": ["يحدد المبادئ والنظريات والمفاهيم الاساسية الخاصة بمجالات التمويل والاستثمار.", "يوضح الممارسات والعمليات المالية والاستثمارية ودورها في تلبية احتياجات ذوي المصلحة.", "يشرح منهجية البحث واساليبه.", "يحلل المشكلات المالية والاستثمارية للوصول الي حلول مبتكره باستخدام الأدوات والنماذج المالية المناسبة.", "يطبق مبدأ العائد والمخاطرة على القرارات الاستثمارية.", "يقيم الأسواق والأدوات المالية لاتخاذ القرارات التمويلية والاستثمارية.", "يستخدم التقنيات الحديثة وتكنولوجيا المعلومات في مجال التمويل والاستثمار.", "يتفاعل مع فرق العمل بمرونة وفعالية ويسعي الي تطوير أدائها.", "ينمي الذات والتعلم الابداعي المستمر."]}]}, {"name": "تقويم مخرجات البرنامج وخصائص خريجيه", "audience": "جهات التوظيف", "axes": [{"name": "الخصائص والقدرات", "items": ["مهارات حل المشكلات.", "المبادرة وريادة الأعمال.", "التخطيط والتنظيم.", "المهارات الشخصية.", "الاتجاة الايجابي.", "الموثوقية والانضباط.", "إدارة الذات.", "الاستعداد للتعلم.", "المرونة وإدارة الأولويات.", "التواصل.", "العمل الجماعي.", "المهارات التنقية والرقمية."]}, {"name": "مخرجات تعلم البرنامج", "items": ["يحدد المبادئ والنظريات والمفاهيم الاساسية الخاصة بمجالات التمويل والاستثمار.", "يوضح الممارسات والعمليات المالية والاستثمارية ودورها في تلبية احتياجات ذوي المصلحة.", "يشرح منهجية البحث واساليبه.", "يحلل المشكلات المالية والاستثمارية للوصول الي حلول مبتكره باستخدام الأدوات والنماذج المالية المناسبة.", "يطبق مبدأ العائد والمخاطرة على القرارات الاستثمارية.", "يقيم الأسواق والأدوات المالية لاتخاذ القرارات التمويلية والاستثمارية.", "يستخدم التقنيات الحديثة وتكنولوجيا المعلومات في مجال التمويل والاستثمار.", "يتفاعل مع فرق العمل بمرونة وفعالية ويسعي الي تطوير أدائها.", "ينمي الذات والتعلم الابداعي المستمر.", "يشارك بفعالية في المسؤولية المجتمعية لتعزيز المواطنة مع التزامه بالقيم الأخلاقية والمعايير المهنية."]}, {"name": "خصائص خريجي البرنامج", "items": ["يحدد المبادئ والنظريات والمفاهيم الاساسية الخاصة بمجالات التمويل والاستثمار.", "يوضح الممارسات والعمليات المالية والاستثمارية ودورها في تلبية احتياجات ذوي المصلحة.", "يشرح منهجية البحث واساليبه.", "يحلل المشكلات المالية والاستثمارية للوصول الي حلول مبتكره باستخدام الأدوات والنماذج المالية المناسبة.", "يطبق مبدأ العائد والمخاطرة على القرارات الاستثمارية.", "يقيم الأسواق والأدوات المالية لاتخاذ القرارات التمويلية والاستثمارية.", "يستخدم التقنيات الحديثة وتكنولوجيا المعلومات في مجال التمويل والاستثمار.", "يتفاعل مع فرق العمل بمرونة وفعالية ويسعي الي تطوير أدائها.", "ينمي الذات والتعلم الابداعي المستمر."]}]}] /*DB_END*/;
+var EMBED = /*EMBED_START*/null/*EMBED_END*/;
+var DB_VERSION = "2026-jouf-2";
+var DEFAULT_LOGO = /*LOGO_START*/"data:image/png;base64,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"/*LOGO_END*/;
+var DEFAULT_LOGO_AR = 0.9412;
+var LOCKED = !!(EMBED && EMBED.locked);
+
+var MEM = {};
+var STORE = {
+  get: function (k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return MEM[k] || null; } },
+  set: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { MEM[k] = v; } }
+};
+function uid() { return "q" + Math.random().toString(36).slice(2, 9); }
+function hash(str) {
+  var h = 0x811c9dc5;
+  str = "jouf::" + String(str);
+  for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = (h * 0x01000193) >>> 0; }
+  return h.toString(16);
+}
+var ACCESS = { pinHash: null, ownerHash: null, expiry: "" };
+var MEMBERS = [];
+var SESSION = { role: "", name: "", id: "", expiry: "" };
+function isOwner() { return SESSION.role === "owner"; }
+function needOwner() {
+  if (!isOwner()) { alert("هذه الخاصية متاحة للمالك فقط."); return false; }
+  return true;
+}
+function saveMembers() {
+  if (LOCKED) STORE.set("srv_membovr" + KEY, MEMBERS); else STORE.set("srv_members", MEMBERS);
+}
+function todayISO() {
+  var d = new Date();
+  return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2);
+}
+/* يقبل 2026-10-10 و 10/10/2026 و 10-10-2026 و 2026/10/10 ويحوّلها إلى YYYY-MM-DD */
+function normDate(v) {
+  v = String(v == null ? "" : v).trim();
+  if (!v) return "";
+  v = v.replace(/[\u0660-\u0669]/g, function (c) { return String(c.charCodeAt(0) - 0x0660); })
+       .replace(/[\u06F0-\u06F9]/g, function (c) { return String(c.charCodeAt(0) - 0x06F0); });
+  var m = v.match(/^(\d{1,4})\s*[-\/.]\s*(\d{1,2})\s*[-\/.]\s*(\d{1,4})$/);
+  if (!m) return "";
+  var y, mo, da;
+  if (m[1].length === 4) { y = +m[1]; mo = +m[2]; da = +m[3]; }        /* سنة أولاً */
+  else { da = +m[1]; mo = +m[2]; y = +m[3]; }                          /* يوم/شهر/سنة */
+  if (mo > 12 && da <= 12) { var t = mo; mo = da; da = t; }            /* تصحيح تلقائي */
+  if (!(y > 1900 && y < 2200) || mo < 1 || mo > 12 || da < 1 || da > 31) return "";
+  return y + "-" + ("0" + mo).slice(-2) + "-" + ("0" + da).slice(-2);
+}
+function fmtDate(v) {
+  var d = normDate(v); if (!d) return v || "";
+  var a = d.split("-"); return a[2] + "/" + a[1] + "/" + a[0];
+}
+/* منتهٍ فقط إذا مضى اليوم المحدد كاملاً */
+function isExpired(v) {
+  var d = normDate(v); if (!d) return false;
+  return todayISO() > d;
+}
+/* يطلب تاريخاً ويقبله بأي صيغة معروفة */
+function askDate(msg, cur) {
+  while (true) {
+    var v = prompt(msg, cur || "");
+    if (v === null) return null;
+    v = v.trim();
+    if (!v) return "";
+    var n = normDate(v);
+    if (n) return n;
+    alert("تاريخ غير مفهوم: " + v + "\nاكتبه هكذا: 2026-10-10  أو  10/10/2026");
+  }
+}
+
+var DB, RESULTS, SETTINGS, CUR = 0;
+
+function seedDb() {
+  return DEFAULT_DB.map(function (s) {
+    return {
+      id: uid(), name: s.name, audience: s.audience,
+      axes: s.axes.map(function (a) {
+        return { name: a.name, items: a.items.map(function (t) { return { id: uid(), text: t }; }) };
+      })
+    };
+  });
+}
+var KEY = LOCKED ? ("_" + (EMBED.bid || "c")) : "";
+function boot() {
+  if (LOCKED) {
+    DB = DEFAULT_DB;
+  } else {
+    DB = STORE.get("srv_db");
+    var v = STORE.get("srv_dbv");
+    if (!DB || !DB.length) { DB = seedDb(); STORE.set("srv_dbv", DB_VERSION); }
+    else if (v !== DB_VERSION) {
+      if (confirm("قاعدة البيانات المرفقة مع هذه النسخة من البرنامج مُحدَّثة (استطلاعات وعبارات جديدة).\n\n" +
+        "«موافق» = استخدام القاعدة الجديدة (سيُحتفظ بنتائجك المحفوظة لكن قد لا ترتبط بالعبارات الجديدة).\n" +
+        "«إلغاء» = الإبقاء على قاعدة بياناتك الحالية.")) {
+        DB = seedDb();
+      }
+      STORE.set("srv_dbv", DB_VERSION);
+    }
+  }
+  RESULTS = STORE.get("srv_res" + KEY) || {};
+  SETTINGS = Object.assign({
+    university: "جامعة الجوف", agency: "وكالة الجامعة للتطوير والجودة",
+    deanship: "عمادة الجودة والاعتماد الأكاديمي", college: "كلية الأعمال",
+    program: "بكالوريوس في التمويل والاستثمار",
+    hijri: "1447هـ", greg: "2026م", committee: "لجنة القياس", signer: "",
+    logo: DEFAULT_LOGO, logoAR: DEFAULT_LOGO_AR
+  }, (LOCKED ? (EMBED.settings || {}) : (STORE.get("srv_set") || {})));
+  if (!SETTINGS.logo) { SETTINGS.logo = DEFAULT_LOGO; SETTINGS.logoAR = DEFAULT_LOGO_AR; }
+  MEMBERS = (LOCKED ? (STORE.get("srv_membovr" + KEY) || (EMBED && EMBED.members) || [])
+    : (STORE.get("srv_members") || []));
+  var fixed = false;
+  MEMBERS.forEach(function (m) {
+    var nv = normDate(m.expiry);
+    if (nv !== (m.expiry || "")) { m.expiry = nv; fixed = true; }
+  });
+  if (fixed) saveMembers();   /* تصحيح تواريخ محفوظة بصيغة قديمة */
+  if (LOCKED) {
+    var meta = STORE.get("srv_meta" + KEY) || {};
+    var ovr = STORE.get("srv_dbovr" + KEY);
+    if (ovr && ovr.length) DB = ovr;
+    ACCESS.pinHash = (meta.pinHash !== undefined ? meta.pinHash : EMBED.pinHash) || null;
+    ACCESS.expiry = normDate((meta.expiry !== undefined ? meta.expiry : EMBED.expiry) || "");
+    ACCESS.ownerHash = EMBED.ownerHash || null;
+  } else {
+    ACCESS.pinHash = STORE.get("srv_pin") || null;
+    ACCESS.ownerHash = ACCESS.pinHash;
+  }
+}
+function resetDb() {
+  if (!needOwner()) return;
+  if (!confirm("استعادة قاعدة البيانات الأصلية المرفقة مع البرنامج؟\n\n" +
+    "سيتم استبدال الاستطلاعات والعبارات الحالية. النتائج المحفوظة لن تُحذف لكنها قد لا ترتبط بالعبارات الجديدة.")) return;
+  DB = seedDb(); CUR = 0; STORE.set("srv_dbv", DB_VERSION); save();
+  renderLauncher(); alert("تمت استعادة قاعدة البيانات الأصلية.");
+}
+function save() {
+  if (!LOCKED) { STORE.set("srv_db", DB); STORE.set("srv_set", SETTINGS); }
+  STORE.set("srv_res" + KEY, RESULTS);
+  var t = document.getElementById("savedTag");
+  if (t) {
+    var d = new Date();
+    t.textContent = "حُفظ " + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
+  }
+}
+function applyLock() {
+  var owner = isOwner() && !LOCKED;   /* الصلاحيات الكاملة في نسخة المالك فقط */
+  document.querySelectorAll(".ownerOnly").forEach(function (x) { x.style.display = owner ? "" : "none"; });
+  document.querySelectorAll(".copyOnly").forEach(function (x) { x.style.display = (LOCKED && !owner) ? "" : "none"; });
+  document.querySelectorAll('nav a[data-p="p1"],nav a[data-p="p4"]').forEach(function (x) {
+    x.style.display = owner ? "" : "none";
+  });
+  if (!owner) {
+    var cur = document.querySelector("nav a.on");
+    if (cur && (cur.dataset.p === "p1" || cur.dataset.p === "p4")) goto("p0");
+  }
+  var b = el("modeBadge");
+  if (b) b.textContent = isOwner()
+    ? (LOCKED ? "المالك — داخل نسخة الزملاء" : "المالك — صلاحيات كاملة")
+    : ("عضو اللجنة: " + (SESSION.name || "—") + (SESSION.expiry ? "  (صالح حتى " + fmtDate(SESSION.expiry) + ")" : ""));
+  lockInputs();
+}
+function lockInputs() {   /* يمنع تعديل نصوص العبارات والبيانات العامة لغير المالك */
+  if (isOwner() && !LOCKED) return;
+  document.querySelectorAll("#entryBox td.st input").forEach(function (i) { i.readOnly = true; i.style.color = "#33475b"; });
+  FIELDS.forEach(function (f) { var i = el("s_" + f[0]); if (i) { i.readOnly = true; i.style.background = "#f4f6f8"; } });
+}
+var CATEGORIES = ["الطلاب", "أعضاء هيئة التدريس", "الإداريون", "الخريجون", "جهات التوظيف"];
+var PROGRAMS = ["بكالوريوس في المحاسبة", "بكالوريوس في إدارة الأعمال",
+  "بكالوريوس في التمويل والاستثمار", "ماجستير إدارة الأعمال التنفيذي"];
+var SECMAP = {
+  "الطلاب": ["الطلاب", "الطالبات", "الطلاب والطالبات (مدمج)"],
+  "أعضاء هيئة التدريس": ["أعضاء هيئة التدريس", "عضوات هيئة التدريس", "أعضاء وعضوات هيئة التدريس (مدمج)"],
+  "الإداريون": ["الإداريون", "الإداريات", "الإداريون والإداريات (مدمج)"],
+  "الخريجون": ["الخريجون", "الخريجات", "الخريجون والخريجات (مدمج)"],
+  "جهات التوظيف": ["جهات التوظيف"]
+};
+var NONE = "بدون تحديد شطر";
+function sectionsFor(aud) { return [NONE].concat(SECMAP[aud] || []); }
+function SECTIONS() { return sectionsFor(S().audience); }
+var CURSEC = NONE;
+/* صيغة الفئة كما تظهر في التقرير */
+function audLabel() {
+  if (CURSEC === NONE) return S().audience;
+  return CURSEC.replace(" (مدمج)", "");
+}
+function sgLabel() {
+  var a = audLabel();
+  var m = {
+    "الطلاب": "طالباً", "الطالبات": "طالبة", "الطلاب والطالبات": "طالباً وطالبة",
+    "أعضاء هيئة التدريس": "عضو هيئة تدريس", "عضوات هيئة التدريس": "عضوة هيئة تدريس",
+    "أعضاء وعضوات هيئة التدريس": "عضواً وعضوة",
+    "الإداريون": "إدارياً", "الإداريات": "إدارية", "الإداريون والإداريات": "إدارياً وإدارية",
+    "الخريجون": "خريجاً", "الخريجات": "خريجة", "الخريجون والخريجات": "خريجاً وخريجة",
+    "جهات التوظيف": "جهة توظيف"
+  };
+  return m[a] || "مستفيد";
+}
+function S() { return DB[CUR]; }
+function secKey(sec) { return S().id + "|" + (sec || CURSEC); }
+function defaultSec() { var l = SECTIONS(); return l.length > 1 ? l[1] : NONE; }
+function setSection(v) {
+  CURSEC = v;
+  var a = el("secSel"), b = el("secSel2");
+  if (a) a.value = v; if (b) b.value = v;
+  var mb = el("mergeBtn"); if (mb) mb.style.display = (v.indexOf("مدمج") >= 0) ? "" : "none";
+  renderEntry();
+  if (el("p3").classList.contains("on")) renderAnalysis();
+}
+function renderSecSel() {
+  var list = SECTIONS();
+  if (list.indexOf(CURSEC) < 0) CURSEC = list.length > 1 ? list[1] : NONE;
+  var opts = list.map(function (x) {
+    return '<option value="' + esc(x) + '"' + (x === CURSEC ? " selected" : "") + '>' + esc(x) + '</option>';
+  }).join("");
+  ["secSel", "secSel2"].forEach(function (id) { var e = el(id); if (e) e.innerHTML = opts; });
+  var mb = el("mergeBtn"); if (mb) mb.style.display = (CURSEC.indexOf("مدمج") >= 0) ? "" : "none";
+}
+function R() {
+  var id = secKey();
+  if (!RESULTS[id]) RESULTS[id] = { counts: {}, alpha: {}, strengths: [], weaknesses: [], plan: [], prev: [], population: "", note: "" };
+  var r = RESULTS[id];
+  ["strengths", "weaknesses", "plan", "prev"].forEach(function (k) { if (!r[k]) r[k] = []; });
+  if (!r.counts) r.counts = {}; if (!r.alpha) r.alpha = {};
+  return r;
+}
+function el(id) { return document.getElementById(id); }
+function lines(v) { return v.split("\n").map(function (s) { return s.trim(); }).filter(Boolean); }
+function closeM(id) { el(id).classList.remove("on"); }
+
+function sgOf(a) {
+  if (a.indexOf("طلاب") === 0) return "طالب وطالبة";
+  if (a.indexOf("أعضاء") === 0) return "عضو هيئة تدريس";
+  if (a.indexOf("الخريج") === 0) return "خريج وخريجة";
+  if (a.indexOf("جهات") === 0) return "جهة توظيف";
+  return "مستفيد";
+}
+function buildModel() {
+  var s = S(), r = R();
+  return {
+    settings: {
+      university: SETTINGS.university, agency: SETTINGS.agency, deanship: SETTINGS.deanship,
+      college: SETTINGS.college, program: SETTINGS.program, hijri: SETTINGS.hijri, greg: SETTINGS.greg,
+      committee: SETTINGS.committee, signer: SETTINGS.signer,
+      logo: SETTINGS.logo, logoAR: SETTINGS.logoAR,
+      title: "استطلاع آراء " + audLabel() + " حول " + s.name,
+      subject: s.name, audience: audLabel(), audienceSg: sgLabel(), population: r.population,
+      section: (CURSEC === NONE ? "" : CURSEC.replace(" (مدمج)", ""))
+    },
+    axes: s.axes.map(function (a, ai) {
+      return {
+        name: a.name, alpha: r.alpha[ai] || "",
+        items: a.items.map(function (it) { return { text: it.text, counts: r.counts[it.id] || ["", "", "", "", ""] }; })
+          .filter(function (x) {
+            return (x.text || "").trim() || x.counts.some(function (c) { return (+c || 0) > 0; });
+          })
+      };
+    }).filter(function (a) {
+      return a.items.some(function (x) { return x.counts.some(function (c) { return (+c || 0) > 0; }); });
+    }),
+    strengths: r.strengths, weaknesses: r.weaknesses, plan: r.plan, prev: r.prev
+  };
+}
+
+function tab(a) {
+  document.querySelectorAll("nav a").forEach(function (x) { x.classList.remove("on"); });
+  document.querySelectorAll(".page").forEach(function (x) { x.classList.remove("on"); });
+  a.classList.add("on"); el(a.dataset.p).classList.add("on");
+  if (a.dataset.p === "p0") renderLauncher();
+  if (a.dataset.p === "p1") renderDb();
+  if (a.dataset.p === "p2") renderEntry();
+  if (a.dataset.p === "p3") renderAnalysis();
+  if (a.dataset.p === "p4") renderMembers();
+  window.scrollTo(0, 0);
+}
+function goto(p) { document.querySelectorAll("nav a").forEach(function (x) { if (x.dataset.p === p) tab(x); }); }
+
+var FIELDS = [["university", "الجامعة"], ["agency", "الوكالة"], ["deanship", "العمادة"], ["college", "الكلية"],
+["hijri", "العام الهجري"], ["greg", "العام الميلادي"],
+["committee", "الجهة المُعِدّة"], ["signer", "اسم المعتمد / التوقيع"]];
+
+function renderSettings() {
+  var custom = PROGRAMS.indexOf(SETTINGS.program) < 0;
+  var progHtml = '<div><label>البرنامج</label>' +
+    '<select id="s_progSel" onchange="progSel(this.value)">' +
+    PROGRAMS.map(function (p) {
+      return '<option value="' + esc(p) + '"' + (p === SETTINGS.program ? " selected" : "") + '>' + esc(p) + '</option>';
+    }).join("") +
+    '<option value="__other__"' + (custom ? " selected" : "") + '>أخرى (اكتب يدوياً)</option></select>' +
+    '<input id="s_program" style="margin-top:6px;display:' + (custom ? "block" : "none") + '" ' +
+    'placeholder="اكتب اسم البرنامج" value="' + esc(SETTINGS.program || "") + '"></div>';
+  el("settingsGrid").innerHTML = FIELDS.map(function (f) {
+    var html = '<div><label>' + f[1] + '</label><input id="s_' + f[0] + '" value="' + esc(SETTINGS[f[0]] || "") + '"></div>';
+    return f[0] === "college" ? html + progHtml : html;
+  }).join("");
+  el("s_program").oninput = function () { SETTINGS.program = this.value; save(); };
+  FIELDS.forEach(function (f) {
+    el("s_" + f[0]).oninput = function () { SETTINGS[f[0]] = this.value; save(); };
+  });
+  lockInputs();
+}
+function setLogo(inp) {
+  var f = inp.files[0]; if (!f) return;
+  if (f.size > 900000) { alert("حجم الصورة كبير. استخدم صورة أصغر من 900 كيلوبايت."); inp.value = ""; return; }
+  var r = new FileReader();
+  r.onload = function () {
+    var img = new Image();
+    img.onload = function () {
+      SETTINGS.logo = r.result; SETTINGS.logoAR = img.width / img.height;
+      save(); showLogo(); alert("تم تحديث الشعار.");
+    };
+    img.src = r.result;
+  };
+  r.readAsDataURL(f); inp.value = "";
+}
+function resetLogo() {
+  SETTINGS.logo = DEFAULT_LOGO; SETTINGS.logoAR = DEFAULT_LOGO_AR; save(); showLogo();
+}
+function showLogo() {
+  var p = el("logoPrev"); if (p) p.src = SETTINGS.logo || "";
+}
+function progSel(v) {
+  var t = el("s_program");
+  if (v === "__other__") { t.style.display = "block"; t.focus(); }
+  else { t.style.display = "none"; t.value = v; SETTINGS.program = v; save(); }
+}
+function statOf(i, sec) {
+  var s = DB[i], r = RESULTS[s.id + "|" + sec];
+  if (!r) return null;
+  var m = { axes: s.axes.map(function (a) { return { name: a.name, items: a.items.map(function (it) { return { text: it.text, counts: (r.counts || {})[it.id] || ["", "", "", "", ""] }; }) }; }) };
+  var c = computeAll(m);
+  return c.axes.some(function (a) { return a.mean > 0; }) ? c : null;
+}
+function renderLauncher() {
+  var groups = {};
+  CATEGORIES.forEach(function (c) { groups[c] = []; });
+  DB.forEach(function (s, i) { (groups[s.audience] = groups[s.audience] || []).push(i); });
+  var h = "";
+  Object.keys(groups).forEach(function (g) {
+    h += '<div class="col"><h3>' + esc(g) + '</h3><div class="lst">';
+    groups[g].forEach(function (i) {
+      var done = [];
+      sectionsFor(DB[i].audience).forEach(function (sec) {
+        var c = statOf(i, sec);
+        if (c) done.push({ lab: sec === NONE ? "عام" : (sec.indexOf("مدمج") >= 0 ? "مدمج" : sec), m: nm(c.overall) });
+      });
+      var badge = done.length
+        ? done.map(function (d) { return '<span class="b done">' + d.lab + " " + d.m + '</span>'; }).join("")
+        : '<span class="b">' + DB[i].axes.reduce(function (a, x) { return a + x.items.length; }, 0) + ' عبارة</span>';
+      h += '<div class="sv" onclick="openSurvey(' + i + ')">' + esc(DB[i].name) + badge + '</div>';
+    });
+    if (!groups[g].length) h += '<p class="hint">' + (isOwner() && !LOCKED
+      ? "لا توجد استطلاعات لهذه الفئة — أضفها من صفحة قاعدة البيانات."
+      : "لا توجد استطلاعات لهذه الفئة في هذه النسخة.") + '</p>';
+    h += '</div></div>';
+  });
+  el("launcher").innerHTML = h;
+}
+function openSurvey(i) { CUR = i; CURSEC = defaultSec(); goto("p2"); }
+function openSurveyTo(i, page) { CUR = i; CURSEC = defaultSec(); goto(page); }
+/* قائمة منسدلة بكل الاستطلاعات — تعمل للمالك ولأعضاء اللجنة معاً */
+function fillPick() {
+  var opts = "";
+  var last = "";
+  DB.forEach(function (x, i) {
+    if (x.audience !== last) {
+      if (last) opts += '</optgroup>';
+      opts += '<optgroup label="' + esc(x.audience || "أخرى") + '">';
+      last = x.audience;
+    }
+    opts += '<option value="' + i + '"' + (i === CUR ? " selected" : "") + '>' + esc(x.name) + '</option>';
+  });
+  if (last) opts += '</optgroup>';
+  ["pickSel", "pickSel2"].forEach(function (id) {
+    var e = el(id);
+    if (e) { e.innerHTML = opts || '<option value="0">لا توجد استطلاعات</option>'; e.value = String(CUR); }
+  });
+}
+
+function renderDb() {
+  el("dbSel").innerHTML = DB.map(function (s, i) {
+    return '<option value="' + i + '"' + (i === CUR ? " selected" : "") + '>' + esc(s.name) + " — " + esc(s.audience) + '</option>';
+  }).join("");
+  renderDbBody();
+}
+function renderDbBody() {
+  CUR = +el("dbSel").value || 0;
+  var s = S();
+  el("dbName").value = s.name;
+  el("dbAud").innerHTML = CATEGORIES.map(function (c) {
+    return '<option value="' + esc(c) + '"' + (c === s.audience ? " selected" : "") + '>' + esc(c) + '</option>';
+  }).join("");
+  el("dbBody").innerHTML = s.axes.map(function (a, ai) {
+    var rows = a.items.map(function (it, ii) {
+      return '<div class="dbrow"><span class="n">' + (ii + 1) + '</span>' +
+        '<input value="' + esc(it.text) + '" oninput="dbSet(' + ai + ',' + ii + ',this.value)">' +
+        '<button class="sm" onclick="dbMove(' + ai + ',' + ii + ',-1)">▲</button>' +
+        '<button class="sm" onclick="dbMove(' + ai + ',' + ii + ',1)">▼</button>' +
+        '<button class="sm del" onclick="dbDelItem(' + ai + ',' + ii + ')">✕</button></div>';
+    }).join("");
+    return '<div class="axbox"><div class="bar">' +
+      '<div style="flex:1;min-width:220px"><label>المحور ' + (ORDINALS[ai] || ai + 1) + '</label>' +
+      '<input value="' + esc(a.name) + '" oninput="dbAxName(' + ai + ',this.value)"></div>' +
+      '<button class="sm" onclick="dbAddItem(' + ai + ')">+ عبارة</button>' +
+      '<button class="sm" onclick="dbMoveAxis(' + ai + ',-1)">▲</button>' +
+      '<button class="sm" onclick="dbMoveAxis(' + ai + ',1)">▼</button>' +
+      '<button class="sm del" onclick="dbDelAxis(' + ai + ')">حذف المحور</button></div>' + rows + '</div>';
+  }).join("") || '<p class="hint">لا توجد محاور — أضف محوراً.</p>';
+}
+function dbRename(v) { S().name = v; save(); }
+function dbAudSet(v) { S().audience = v; save(); }
+function dbSet(ai, ii, v) { S().axes[ai].items[ii].text = v; save(); }
+function dbAxName(ai, v) { S().axes[ai].name = v; save(); }
+function dbAddItem(ai) { S().axes[ai].items.push({ id: uid(), text: "" }); save(); renderDbBody(); }
+function dbDelItem(ai, ii) {
+  if (!confirm("حذف العبارة؟")) return;
+  var it = S().axes[ai].items.splice(ii, 1)[0];
+  var r = RESULTS[S().id]; if (r && r.counts) delete r.counts[it.id];
+  save(); renderDbBody();
+}
+function dbMove(ai, ii, d) {
+  var a = S().axes[ai].items, j = ii + d; if (j < 0 || j >= a.length) return;
+  var t = a[ii]; a[ii] = a[j]; a[j] = t; save(); renderDbBody();
+}
+function dbAddAxis() { S().axes.push({ name: "محور جديد", items: [{ id: uid(), text: "" }] }); save(); renderDbBody(); }
+function dbDelAxis(ai) { if (confirm("حذف المحور وكل عباراته؟")) { S().axes.splice(ai, 1); save(); renderDbBody(); } }
+function dbMoveAxis(ai, d) {
+  var a = S().axes, j = ai + d; if (j < 0 || j >= a.length) return;
+  var t = a[ai]; a[ai] = a[j]; a[j] = t; save(); renderDbBody();
+}
+function dbNew() {
+  var n = prompt("اسم الاستطلاع الجديد:", "استطلاع جديد"); if (!n) return;
+  var au = prompt("فئة المستفيدين (" + CATEGORIES.join(" / ") + "):", "الطلاب");
+  if (CATEGORIES.indexOf(au) < 0) au = "الطلاب";
+  DB.push({ id: uid(), name: n, audience: au, axes: [{ name: "المحور الأول", items: [{ id: uid(), text: "" }] }] });
+  CUR = DB.length - 1; save(); renderDb();
+}
+function dbDup() {
+  var s = JSON.parse(JSON.stringify(S()));
+  s.id = uid(); s.name = s.name + " (نسخة)";
+  s.axes.forEach(function (a) { a.items.forEach(function (it) { it.id = uid(); }); });
+  DB.push(s); CUR = DB.length - 1; save(); renderDb();
+}
+function dbDel() {
+  if (DB.length < 2) { alert("لا يمكن حذف آخر استطلاع."); return; }
+  if (!confirm("حذف الاستطلاع «" + S().name + "» ونتائجه؟")) return;
+  delete RESULTS[S().id]; DB.splice(CUR, 1); CUR = 0; save(); renderDb();
+}
+
+function degClass(d) { return { "مرتفع جدا": "d1", "مرتفع": "d2", "متوسط": "d3", "ضعيف": "d4", "ضعيف جدا": "d5" }[d] || ""; }
+function setPop(v) { R().population = v; save(); }
+function setNote(v) { R().note = v; save(); }
+function cnt(it) { var r = R(); return r.counts[it.id] || (r.counts[it.id] = ["", "", "", "", ""]); }
+
+function renderEntry() {
+  var s = S(), r = R();
+  fillPick();
+  renderSecSel();
+  el("popIn").value = r.population || ""; el("noteIn").value = r.note || "";
+  var h = "";
+  s.axes.forEach(function (a, ai) {
+    h += '<div class="card"><div class="bar"><h2 style="margin:0">المحور ' + (ORDINALS[ai] || ai + 1) + ': ' + esc(a.name) + '</h2>' +
+      '<div style="margin-inline-start:auto;width:160px"><label>ألفا كرونباخ</label>' +
+      '<input value="' + esc(r.alpha[ai] || "") + '" oninput="R().alpha[' + ai + ']=this.value;save()"></div></div>' +
+      '<table><tr><th style="width:34px">م</th><th>العبارة</th>' +
+      OPTIONS.map(function (o) { return "<th style='width:72px'>" + o + "</th>"; }).join("") +
+      '<th style="width:52px">العدد</th><th style="width:58px">المتوسط</th><th style="width:56px">%</th><th style="width:84px">الدرجة</th></tr>';
+    a.items.forEach(function (it, ii) {
+      var c = cnt(it), x = computeItem(c);
+      h += '<tr class="' + (ii % 2 ? "" : "alt") + '"><td>' + (ii + 1) + '</td>' +
+        '<td class="st"><input value="' + esc(it.text) + '" oninput="dbSet(' + ai + ',' + ii + ',this.value)"></td>';
+      for (var k = 0; k < 5; k++)
+        h += '<td class="num"><input type="number" min="0" value="' + esc(c[k]) +
+          '" oninput="setCount(\'' + it.id + '\',' + k + ',this.value,' + ai + ',' + ii + ')"></td>';
+      h += '<td class="calc" id="n_' + ai + '_' + ii + '">' + (x.n || "") + '</td>' +
+        '<td class="calc" id="m_' + ai + '_' + ii + '">' + (x.empty ? "" : nm(x.mean)) + '</td>' +
+        '<td class="calc" id="a_' + ai + '_' + ii + '">' + (x.empty ? "" : pc(x.agree)) + '</td>' +
+        '<td class="deg ' + degClass(x.degree) + '" id="d_' + ai + '_' + ii + '">' + (x.empty ? "" : x.degree) + '</td></tr>';
+    });
+    h += '<tr><td colspan="7" class="calc">المحور ككل</td><td class="calc" colspan="2" id="am_' + ai + '"></td>' +
+      '<td class="calc" id="aa_' + ai + '"></td><td class="deg" id="ad_' + ai + '"></td></tr></table></div>';
+  });
+  el("entryBox").innerHTML = h;
+  liveSum(); lockInputs();
+}
+function setCount(qid, k, v, ai, ii) {
+  var r = R(); (r.counts[qid] = r.counts[qid] || ["", "", "", "", ""])[k] = v;
+  var x = computeItem(r.counts[qid]);
+  el("n_" + ai + "_" + ii).textContent = x.n || "";
+  el("m_" + ai + "_" + ii).textContent = x.empty ? "" : nm(x.mean);
+  el("a_" + ai + "_" + ii).textContent = x.empty ? "" : pc(x.agree);
+  var d = el("d_" + ai + "_" + ii); d.textContent = x.empty ? "" : x.degree; d.className = "deg " + degClass(x.degree);
+  liveSum(); save();
+}
+function liveSum() {
+  var c = computeAll(buildModel());
+  c.axes.forEach(function (a, i) {
+    var m = el("am_" + i); if (!m) return;
+    m.textContent = a.mean ? nm(a.mean) : "";
+    el("aa_" + i).textContent = a.mean ? pc(a.agree) : "";
+    var d = el("ad_" + i); d.textContent = a.mean ? a.degree : ""; d.className = "deg " + degClass(a.degree);
+  });
+}
+function buildMerged() {
+  var L = SECTIONS();
+  var a = RESULTS[secKey(L[1])], b = RESULTS[secKey(L[2])];
+  if (!a && !b) { alert("لا توجد نتائج مُدخلة للشطرين المراد دمجهما."); return; }
+  if (!confirm("سيتم جمع نتائج «" + L[1] + "» مع «" + L[2] + "» لكل عبارة، واستبدال نتائج الشطر المدمج الحالية. متابعة؟")) return;
+  var r = R(); r.counts = {};
+  flatItems().forEach(function (f) {
+    var x = (a && a.counts[f.it.id]) || ["", "", "", "", ""];
+    var y = (b && b.counts[f.it.id]) || ["", "", "", "", ""];
+    var sum = [0, 1, 2, 3, 4].map(function (k) { return String((+x[k] || 0) + (+y[k] || 0)); });
+    if (sum.some(function (v) { return +v > 0; })) r.counts[f.it.id] = sum;
+  });
+  r.population = String((+((a || {}).population) || 0) + (+((b || {}).population) || 0) || "");
+  save(); renderEntry();
+  alert("تم تجميع الشطرين. راجع النتائج ثم انتقل إلى التحليل.");
+}
+function clearCounts() {
+  if (!confirm("مسح كل النتائج المُدخلة لهذا الاستطلاع؟")) return;
+  R().counts = {}; R().alpha = {}; save(); renderEntry();
+}
+function flatItems() {
+  var out = []; S().axes.forEach(function (a, ai) { a.items.forEach(function (it, ii) { out.push({ it: it, ai: ai, ii: ii }); }); });
+  return out;
+}
+function parseGrid(t) {
+  return t.split(/\r?\n/).map(function (l) {
+    var cells = l.indexOf("\t") >= 0 ? l.split("\t")
+      : (l.indexOf(";") >= 0 ? l.split(";")
+        : (l.indexOf(",") >= 0 ? l.split(",") : l.split(/\s{2,}/)));
+    return cells.map(function (c) { return c.replace(/^"|"$/g, "").trim(); });
+  }).filter(function (r) { return r.join("").length; });
+}
+/* تحويل إجابة نصية (قوقل فورم) أو رقمية إلى درجة من 1 إلى 5 */
+function normTxt(t) {
+  return String(t == null ? "" : t)
+    .replace(/[\u064B-\u0652\u0640\u200f\u200e]/g, "")
+    .replace(/[\u0623\u0625\u0622\u0671]/g, "\u0627")
+    .replace(/\u0649/g, "\u064a").replace(/\u0629/g, "\u0647")
+    .replace(/\s+/g, " ").trim().toLowerCase();
+}
+function toVal(t) {
+  var n = normTxt(t); if (!n) return null;
+  if (/^[1-5]$/.test(n)) return parseInt(n, 10);
+  if (/strongly\s*agree/.test(n)) return 5;
+  if (/strongly\s*disagree/.test(n)) return 1;
+  if (/^agree/.test(n)) return 4;
+  if (/^disagree/.test(n)) return 2;
+  if (/neutral|not\s*sure/.test(n)) return 3;
+  if (/محايد|حد ما|متوسط|احيانا|لا اعرف|لا ادري/.test(n)) return 3;
+  if (/وافق/.test(n)) {
+    var neg = /غير|^لا |\bلا /.test(n), strong = /بشد/.test(n);
+    if (neg) return strong ? 1 : 2;
+    return strong ? 5 : 4;
+  }
+  return null;
+}
+function openPaste() { el("pasteArea").value = ""; el("pasteModal").classList.add("on"); }
+function applyPaste() {
+  var rows = parseGrid(el("pasteArea").value); if (!rows.length) return;
+  var flat = flatItems(), withText = rows[0].length >= 6, n = Math.min(rows.length, flat.length), r = R();
+  for (var i = 0; i < n; i++) {
+    var row = rows[i], off = withText ? 1 : 0, f = flat[i];
+    if (withText && row[0]) f.it.text = row[0];
+    r.counts[f.it.id] = [0, 1, 2, 3, 4].map(function (k) { return (row[off + k] || "").replace(/[^\d.]/g, ""); });
+  }
+  closeM("pasteModal"); save(); renderEntry(); alert("تم تعبئة " + n + " عبارة.");
+}
+function openRaw() { el("rawArea").value = ""; el("rawModal").classList.add("on"); }
+function applyRaw() {
+  var rows = parseGrid(el("rawArea").value);
+  if (!rows.length) { alert("لا توجد بيانات."); return; }
+  var mapped = rows.map(function (r) { return r.map(toVal); });
+
+  // كشف صف العناوين (أسئلة/طابع زمني) وتجاهله
+  var header = null;
+  var ok0 = mapped[0].filter(function (v) { return v !== null; }).length;
+  if (ok0 < Math.ceil(mapped[0].length * 0.5)) { header = rows[0]; rows = rows.slice(1); mapped = mapped.slice(1); }
+  if (!mapped.length) { alert("لا توجد استجابات بعد صف العناوين."); return; }
+
+  // كشف أعمدة الإجابات فقط (تُتجاهل أعمدة الطابع الزمني والبريد والاسم)
+  var ncols = Math.max.apply(null, mapped.map(function (r) { return r.length; }));
+  var cols = [], need = Math.max(1, Math.ceil(mapped.length * 0.5));
+  for (var c = 0; c < ncols; c++) {
+    var vals = [];
+    mapped.forEach(function (r) { if (c < r.length && r[c] !== null) vals.push(r[c]); });
+    if (vals.length >= need) cols.push({ i: c, vals: vals });
+  }
+  if (!cols.length) { alert("لم يتعرف النظام على أي عمود إجابات. تأكد من نسخ أعمدة الإجابات كما هي من الجدول."); return; }
+
+  var flat = flatItems(), r = R();
+  if (cols.length > flat.length) {
+    var extra = cols.length - flat.length;
+    if (confirm("عدد أعمدة الإجابات (" + cols.length + ") أكبر من عدد عبارات الاستطلاع (" + flat.length + ").\n\n" +
+      "اضغط «موافق» لإضافة " + extra + " عبارة فارغة إلى المحور الأخير حتى لا تُفقد أي بيانات (تكتب نصوصها لاحقاً)،\n" +
+      "أو «إلغاء» للاكتفاء بتعبئة العبارات الموجودة بالترتيب.")) {
+      var lastAx = S().axes[S().axes.length - 1];
+      for (var e = 0; e < extra; e++) lastAx.items.push({ id: uid(), text: "" });
+      flat = flatItems();
+    }
+  }
+  var n = Math.min(cols.length, flat.length);
+  var byAxis = {};
+  for (var j = 0; j < n; j++) {
+    var cc = [0, 0, 0, 0, 0];
+    cols[j].vals.forEach(function (v) { cc[5 - v]++; });
+    r.counts[flat[j].it.id] = cc.map(String);
+    (byAxis[flat[j].ai] = byAxis[flat[j].ai] || []).push(cols[j].vals);
+  }
+  var k = 0;
+  Object.keys(byAxis).forEach(function (ai) {
+    var al = cronbach(byAxis[ai]);
+    if (al !== null && isFinite(al)) { r.alpha[ai] = al.toFixed(3); k++; }
+  });
+
+  // تحديث نصوص العبارات من صف العناوين إن رغب المستخدم
+  if (header && cols.length === flat.length) {
+    var sample = (header[cols[0].i] || "").trim();
+    if (sample.length > 8 && confirm("وُجد صف عناوين. هل تريد تحديث نصوص العبارات من أسئلة الاستمارة؟\n\nمثال: " + sample)) {
+      for (var q = 0; q < n; q++) {
+        var t = (header[cols[q].i] || "").trim();
+        if (t) flat[q].it.text = t;
+      }
+    }
+  }
+
+  closeM("rawModal"); save(); renderEntry();
+  var msg = "تم تحليل " + mapped.length + " استجابة، وعدد أعمدة الإجابات المكتشفة " + cols.length +
+    "، وعدد عبارات الاستطلاع " + flat.length + ".";
+  if (cols.length !== flat.length) {
+    msg += "\n\nتنبيه: العددان غير متطابقين، فتمت تعبئة " + n +
+      " عبارة فقط بالترتيب. راجع عدد العبارات في قاعدة البيانات أو احذف الأعمدة الزائدة قبل اللصق.";
+  }
+  if (k) msg += "\n\nواحتُسب معامل ألفا كرونباخ لـ " + k + " محور.";
+  alert(msg);
+}
+
+function renderAnalysis() {
+  var c = computeAll(buildModel()), r = R();
+  fillPick();
+  renderSecSel();
+  el("kpis").innerHTML =
+    '<div class="kpi"><span>المتوسط العام</span><b>' + nm(c.overall) + '</b></div>' +
+    '<div class="kpi"><span>نسبة الموافقة</span><b>' + pc(c.overall / 5) + '</b></div>' +
+    '<div class="kpi"><span>درجة الرضا</span><b>' + c.overallDegree + '</b></div>' +
+    '<div class="kpi"><span>المحاور / العبارات</span><b>' + c.axes.length + " / " +
+    c.axes.reduce(function (a, x) { return a + x.items.length; }, 0) + '</b></div>';
+  var h = '<table><tr><th>المحور</th><th>اسم المحور</th><th>البنود</th><th>نسبة الموافقة</th><th>المتوسط</th><th>الدرجة</th></tr>';
+  c.axes.forEach(function (a, i) {
+    h += '<tr class="' + (i % 2 ? "" : "alt") + '"><td>' + (ORDINALS[i] || i + 1) + '</td><td class="st">' + esc(a.name) +
+      '</td><td>' + a.items.length + '</td><td>' + pc(a.agree) + '</td><td>' + nm(a.mean) +
+      '</td><td class="deg ' + degClass(a.degree) + '">' + a.degree + '</td></tr>';
+  });
+  h += '<tr><td colspan="3" class="calc">المتوسط العام</td><td class="calc">' + pc(c.overall / 5) +
+    '</td><td class="calc">' + nm(c.overall) + '</td><td class="calc">' + c.overallDegree + '</td></tr></table>';
+  el("sumBox").innerHTML = h;
+  el("strengths").value = r.strengths.join("\n");
+  el("weaknesses").value = r.weaknesses.join("\n");
+  renderPlan(); renderPrev();
+}
+function topItems(asc, k) {
+  var all = [];
+  computeAll(buildModel()).axes.forEach(function (a) { a.items.forEach(function (i) { if (!i.empty) all.push(i); }); });
+  all.sort(function (x, y) { return asc ? x.mean - y.mean : y.mean - x.mean; });
+  return all.slice(0, k || 3);
+}
+function autoSW() {
+  var r = R();
+  r.strengths = topItems(false, 3).map(function (i) { return i.text + "  (المتوسط " + nm(i.mean) + " – " + i.degree + ")"; });
+  r.weaknesses = topItems(true, 3).map(function (i) { return i.text + "  (المتوسط " + nm(i.mean) + " – " + i.degree + ")"; });
+  el("strengths").value = r.strengths.join("\n"); el("weaknesses").value = r.weaknesses.join("\n"); save();
+}
+function renderPlan() {
+  var cols = ["rec", "act", "crit", "who", "from", "to"],
+    heads = ["التوصيات", "الإجراءات", "آلية التقييم أو المعايير", "الشخص المسؤول", "تاريخ البدء", "تاريخ الانتهاء"];
+  var r = R();
+  var h = '<table><tr><th style="width:34px">م</th>' + heads.map(function (x) { return "<th>" + x + "</th>"; }).join("") + '<th style="width:44px"></th></tr>';
+  r.plan.forEach(function (row, i) {
+    h += '<tr class="' + (i % 2 ? "" : "alt") + '"><td>' + (i + 1) + '</td>' + cols.map(function (c) {
+      return '<td class="st"><input value="' + esc(row[c] || "") + '" oninput="R().plan[' + i + '].' + c + '=this.value;save()"></td>';
+    }).join("") + '<td><button class="sm del" onclick="R().plan.splice(' + i + ',1);save();renderPlan()">✕</button></td></tr>';
+  });
+  h += '</table>';
+  el("planBox").innerHTML = r.plan.length ? h : '<p class="hint">لا توجد توصيات — سيولّد التقرير توصيات تلقائية من أضعف ثلاث عبارات.</p>';
+}
+function addPlan() { R().plan.push({ rec: "", act: "", crit: "", who: "", from: "", to: "" }); save(); renderPlan(); }
+function autoPlan() {
+  R().plan = topItems(true, 3).map(function (i) {
+    return { rec: "اتخاذ إجراءات لتحسين: " + i.text, act: "", crit: "الاستبانة", who: "إدارة البرنامج", from: "", to: "" };
+  });
+  save(); renderPlan();
+}
+function renderPrev() {
+  var cols = ["act", "who", "done", "why", "next"],
+    heads = ["الإجراءات المخطط لها", "الشخص المسؤول", "منجز", "الأسباب", "الإجراء المقترح"];
+  var r = R();
+  var h = '<table><tr>' + heads.map(function (x) { return "<th>" + x + "</th>"; }).join("") + '<th style="width:44px"></th></tr>';
+  r.prev.forEach(function (row, i) {
+    h += '<tr class="' + (i % 2 ? "" : "alt") + '">' + cols.map(function (c) {
+      return '<td class="st"><input value="' + esc(row[c] || "") + '" oninput="R().prev[' + i + '].' + c + '=this.value;save()"></td>';
+    }).join("") + '<td><button class="sm del" onclick="R().prev.splice(' + i + ',1);save();renderPrev()">✕</button></td></tr>';
+  });
+  h += '</table>';
+  el("prevBox").innerHTML = r.prev.length ? h : '<p class="hint">لا توجد صفوف — سيظهر الجدول فارغاً في التقرير.</p>';
+}
+function addPrev() { R().prev.push({ act: "", who: "", done: "", why: "", next: "" }); save(); renderPrev(); }
+
+function dl(blob, name) {
+  var u = URL.createObjectURL(blob), a = document.createElement("a");
+  a.href = u; a.download = name; a.click();
+  setTimeout(function () { URL.revokeObjectURL(u); }, 2000);
+}
+function fname(ext) {
+  var sec = CURSEC.indexOf("عام") === 0 ? "" : " - " + CURSEC.replace(" (طلاب وطالبات)", "");
+  return (S().name + sec + " - " + SETTINGS.program + " - " + SETTINGS.hijri).replace(/[\\/:*?"<>|]/g, "") + "." + ext;
+}
+function ready() {
+  var c = computeAll(buildModel());
+  if (!c.axes.some(function (a) { return a.mean > 0; })) { alert("لم تُدخل نتائج لهذا الاستطلاع بعد."); return false; }
+  return true;
+}
+function exportDocx() {
+  if (!ready()) return;
+  dl(new Blob([buildDocx(buildModel())], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }), fname("docx"));
+}
+function exportXls() {
+  if (!ready()) return;
+  dl(new Blob(["\ufeff" + buildExcelHtml(buildModel())], { type: "application/vnd.ms-excel" }), fname("xls"));
+}
+function exportColleagueCopy() {
+  if (!needOwner()) return;
+  if (!ACCESS.ownerHash) {
+    if (!confirm("لم تضبط كلمة مرور للمالك بعد.\n\nيُنصح بضبطها أولاً (زر 🔑) لتتمكن من فتح نسخ الزملاء بعد انتهاء صلاحيتها وإرسال حزم تحديث موثّقة.\n\nالمتابعة بدون كلمة مرور مالك؟")) return;
+  }
+  var pin = prompt("كلمة مرور نسخة الزملاء (اتركها فارغة لنسخة بلا كلمة مرور):", "");
+  if (pin === null) return;
+  var exp = askDate("تاريخ انتهاء صلاحية النسخة (مثال 2026-10-10 أو 10/10/2026) — اتركه فارغاً لصلاحية مفتوحة:", "");
+  if (exp === null) return;
+  var bid = "c" + Math.random().toString(36).slice(2, 8);
+  var payload = {
+    locked: true, bid: bid, settings: SETTINGS, members: MEMBERS,
+    pinHash: pin ? hash(pin) : null, expiry: normDate(exp), ownerHash: ACCESS.ownerHash || null
+  };
+  var out = SRC;
+  function splice(str, a, b, val) {
+    var i = str.indexOf(a), j = str.indexOf(b);
+    if (i < 0 || j < 0) return str;
+    return str.slice(0, i + a.length) + val + str.slice(j);
+  }
+  out = splice(out, "/*DB_START*/", "/*DB_END*/", JSON.stringify(DB));
+  out = splice(out, "/*EMBED_START*/", "/*EMBED_END*/", JSON.stringify(payload));
+  dl(new Blob(["<!DOCTYPE html>\n" + out], { type: "text/html;charset=utf-8" }),
+    "نظام_تحليل_الاستطلاعات - نسخة الزملاء - " + (SETTINGS.hijri || "") + ".html");
+  setTimeout(function () {
+    alert("تم إنشاء نسخة للزملاء تحتوي قاعدة بياناتك وإعداداتك الحالية.\n\n" +
+      (pin ? "كلمة المرور: " + pin + "\n" : "") +
+      (exp ? "تنتهي صلاحيتها في: " + fmtDate(exp) + "\n\n" : "\n") +
+      "في هذه النسخة: لا يمكن تعديل الاستطلاعات ولا العبارات ولا البيانات العامة، " +
+      "ويستطيع الزميل إدخال النتائج وكتابة نقاط القوة والضعف والتوصيات واستخراج تقرير الوورد، " +
+      "ثم إرسال «نسخة احتياطية» لك لدمج نتائجه في نسختك.");
+  }, 400);
+}
+function saveAll() {
+  dl(new Blob([JSON.stringify({ db: DB, results: RESULTS, settings: SETTINGS, members: MEMBERS }, null, 1)], { type: "application/json" }),
+    "نسخة_احتياطية_" + (SETTINGS.hijri || "") + ".json");
+}
+function restoreAll(inp) {
+  if (!needOwner()) return;
+  var f = inp.files[0]; if (!f) return;
+  var rd = new FileReader();
+  rd.onload = function () {
+    try {
+      var d = JSON.parse(rd.result);
+      var withDb = d.db && confirm("هل تريد استيراد قاعدة البيانات (الاستطلاعات والعبارات) أيضاً؟\n\n" +
+        "«موافق» = استعادة كاملة.\n«إلغاء» = دمج النتائج فقط مع الإبقاء على قاعدة بياناتك الحالية.");
+      if (withDb) { DB = d.db; if (d.settings) SETTINGS = Object.assign(SETTINGS, d.settings); }
+      if (d.results) RESULTS = Object.assign(RESULTS, d.results);
+      if (d.members && d.members.length && confirm("الملف يحتوي قائمة أعضاء لجنة. هل تستبدل قائمة الأعضاء الحالية بها؟")) {
+        MEMBERS = d.members; saveMembers();
+      }
+      CUR = 0; save(); renderSettings(); renderLauncher();
+      alert(withDb ? "تمت الاستعادة الكاملة." : "تم دمج النتائج.");
+    } catch (e) { alert("ملف غير صالح."); }
+  };
+  rd.readAsText(f); inp.value = "";
+}
+
+/* ================= نظام الدخول والصلاحيات ================= */
+var GMODE = "owner";
+
+function activeMembers() {
+  return MEMBERS.filter(function (m) { return m.active !== false; });
+}
+function fillWho() {
+  var sel = el("gateWho"), act = activeMembers();
+  el("whoWrap").style.display = act.length ? "" : "none";
+  sel.innerHTML = act.map(function (m) {
+    return '<option value="' + m.id + '">' + esc(m.name || "بدون اسم") + '</option>';
+  }).join("");
+  el("tabMember").style.display = (act.length || (LOCKED && ACCESS.pinHash)) ? "" : "none";
+}
+function gateMode(m) {
+  GMODE = m;
+  el("gOwner").style.display = m === "owner" ? "" : "none";
+  el("gMember").style.display = m === "member" ? "" : "none";
+  el("gSetup").style.display = m === "setup" ? "" : "none";
+  el("gTabs").style.display = m === "setup" ? "none" : "";
+  el("tabOwner").className = "gt" + (m === "owner" ? " on" : "");
+  el("tabMember").className = "gt" + (m === "member" ? " on" : "");
+  el("gateErr").textContent = "";
+  el("gateBtn").textContent = m === "setup" ? "حفظ ودخول" : "دخول";
+  el("gateMsg").textContent = m === "setup"
+    ? "أول تشغيل: اضبط كلمة مرور المالك لحماية البرنامج."
+    : (m === "owner"
+      ? "أدخل كلمة مرور المالك للدخول بصلاحيات كاملة."
+      : (activeMembers().length
+        ? "اختر اسمك ثم أدخل الرقم السري الذي زوّدك به مسؤول الجودة."
+        : "أدخل الرقم السري الخاص بهذه النسخة."));
+  el("gateNote").textContent = m === "setup"
+    ? "احفظ كلمة المرور في مكان آمن — لا يمكن استرجاعها لاحقاً. وإذا كنت عضو لجنة وظهرت لك هذه الشاشة، فهذا الملف ليس النسخة المخصصة لك — اطلب من مسؤول الجودة «نسخة الزملاء»."
+    : (m === "member" && ACCESS.expiry && LOCKED ? "صلاحية هذه النسخة تنتهي في " + fmtDate(ACCESS.expiry) : "");
+  setTimeout(function () {
+    var f = m === "setup" ? "newPin1" : (m === "owner" ? "gatePin" : "gateMPin");
+    var x = el(f); if (x) x.focus();
+  }, 80);
+}
+function gate() {
+  if (LOCKED && !ACCESS.pinHash && !ACCESS.expiry && !activeMembers().length) {
+    startSession("member", "عضو اللجنة", "", "");
+    return true;
+  }
+  el("gate").style.display = "flex";
+  var lg = el("gateLogo");
+  if (SETTINGS && SETTINGS.logo) { lg.src = SETTINGS.logo; } else { lg.style.display = "none"; }
+  el("gateOrg").textContent = ((SETTINGS && SETTINGS.university) || "") +
+    ((SETTINGS && SETTINGS.college) ? " — " + SETTINGS.college : "");
+  fillWho();
+  if (!LOCKED && !ACCESS.ownerHash) gateMode("setup");
+  else if (LOCKED && !ACCESS.ownerHash) gateMode("member");
+  else gateMode("owner");
+  return false;
+}
+function startSession(role, name, id, expiry) {
+  SESSION = { role: role, name: name || "", id: id || "", expiry: expiry || "" };
+  el("gate").style.display = "none";
+  ["gatePin", "gateMPin", "newPin1", "newPin2"].forEach(function (k) { var x = el(k); if (x) x.value = ""; });
+  el("gateErr").textContent = "";
+  applyLock();
+  renderSettings(); showLogo(); renderLauncher();
+  if (isOwner()) renderMembers();
+}
+function gErr(t) { el("gateErr").textContent = t; }
+function doLogin() {
+  if (GMODE === "setup") {
+    var a = el("newPin1").value, b = el("newPin2").value;
+    if (a.length < 4) { gErr("اجعل كلمة المرور ٤ خانات فأكثر."); return; }
+    if (a !== b) { gErr("الكلمتان غير متطابقتين."); return; }
+    ACCESS.pinHash = hash(a); ACCESS.ownerHash = ACCESS.pinHash;
+    STORE.set("srv_pin", ACCESS.pinHash);
+    startSession("owner", "المالك", "", "");
+    setTimeout(function () { alert("تم ضبط كلمة مرور المالك.\n\nيمكنك الآن إضافة أعضاء اللجنة من تبويب «الأعضاء والصلاحيات»."); }, 200);
+    return;
+  }
+  if (GMODE === "owner") {
+    if (!ACCESS.ownerHash) { gErr("لا توجد كلمة مرور مالك في هذه النسخة."); return; }
+    if (hash(el("gatePin").value) !== ACCESS.ownerHash) { gErr("كلمة مرور المالك غير صحيحة."); return; }
+    startSession("owner", "المالك", "", "");
+    return;
+  }
+  var act = activeMembers();
+  if (!act.length) {                       /* نسخة زملاء برقم سري واحد */
+    if (ACCESS.pinHash && hash(el("gateMPin").value) === ACCESS.pinHash) {
+      if (isExpired(ACCESS.expiry)) {
+        gErr("انتهت صلاحية هذه النسخة بتاريخ " + fmtDate(ACCESS.expiry) + " — راجع مسؤول الجودة."); return;
+      }
+      startSession("member", "عضو اللجنة", "", ACCESS.expiry); return;
+    }
+    gErr("الرقم السري غير صحيح."); return;
+  }
+  var id = el("gateWho").value, m = null;
+  MEMBERS.forEach(function (x) { if (x.id === id) m = x; });
+  if (!m) { gErr("اختر اسمك من القائمة."); return; }
+  if (m.active === false) { gErr("هذا الحساب موقوف — راجع مسؤول الجودة."); return; }
+  if (isExpired(m.expiry)) {
+    gErr("انتهت صلاحية حسابك بتاريخ " + fmtDate(m.expiry) + " — راجع مسؤول الجودة لتجديدها."); return;
+  }
+  if (!m.pinHash || hash(el("gateMPin").value) !== m.pinHash) { gErr("الرقم السري غير صحيح."); return; }
+  m.last = todayISO(); saveMembers();
+  startSession("member", m.name, m.id, m.expiry || "");
+}
+function tryUnlock() { doLogin(); }
+function logout() {
+  if (!confirm("قفل البرنامج والعودة إلى شاشة الدخول؟\n\n(كل ما أدخلته محفوظ تلقائياً)")) return;
+  location.reload();
+}
+
+/* ================= إدارة أعضاء اللجنة ================= */
+function validDate(d) { return !d || !!normDate(d); }
+function renderMembers() {
+  var box = el("memBox"); if (!box) return;
+  if (!MEMBERS.length) {
+    box.innerHTML = '<p class="hint">لا يوجد أعضاء بعد. اضغط «+ إضافة عضو» لإنشاء حساب لكل عضو في اللجنة.</p>';
+    return;
+  }
+  var h = '<table class="mtab"><tr><th style="width:34px">م</th><th>اسم العضو</th><th>الصفة / الجهة</th>' +
+    '<th style="width:140px">انتهاء الصلاحية</th><th style="width:90px">الحالة</th>' +
+    '<th style="width:95px">آخر دخول</th><th style="width:190px">إجراءات</th></tr>';
+  MEMBERS.forEach(function (m, i) {
+    var exp = isExpired(m.expiry);
+    var st = (m.active === false) ? '<span class="pill no">موقوف</span>'
+      : (exp ? '<span class="pill wr">منتهي</span>' : '<span class="pill ok">فعّال</span>');
+    h += '<tr' + (i % 2 ? ' class="alt"' : '') + '><td>' + (i + 1) + '</td>' +
+      '<td class="r"><input type="text" value="' + esc(m.name || "") + '" oninput="memSet(' + i + ',\'name\',this.value)"></td>' +
+      '<td class="r"><input type="text" value="' + esc(m.note || "") + '" placeholder="عضو لجنة القياس" oninput="memSet(' + i + ',\'note\',this.value)"></td>' +
+      '<td><input type="date" value="' + esc(m.expiry || "") + '" onchange="memSet(' + i + ',\'expiry\',this.value)"></td>' +
+      '<td>' + st + '</td>' +
+      '<td style="font-size:11.5px;color:#5b6b7b">' + esc(m.last || "—") + '</td>' +
+      '<td><button class="sm" onclick="memPin(' + i + ')">الرقم السري</button> ' +
+      '<button class="sm" onclick="memToggle(' + i + ')">' + (m.active === false ? "تفعيل" : "إيقاف") + '</button> ' +
+      '<button class="sm del" onclick="memDel(' + i + ')">حذف</button></td></tr>';
+  });
+  box.innerHTML = h + '</table>';
+}
+function memSet(i, k, v) {
+  if (!needOwner()) return;
+  if (k === "expiry") {
+    var nv = normDate(v);
+    if (v && !nv) { alert("تاريخ غير مفهوم. اكتبه هكذا: 2026-10-10 أو 10/10/2026"); renderMembers(); return; }
+    MEMBERS[i].expiry = nv; saveMembers(); renderMembers(); return;
+  }
+  MEMBERS[i][k] = (v || "").trim(); saveMembers();
+}
+function memAdd() {
+  if (!needOwner()) return;
+  var n = prompt("اسم العضو:", ""); if (n === null) return;
+  n = n.trim(); if (!n) { alert("اكتب اسم العضو."); return; }
+  var pin = prompt("الرقم السري لهذا العضو (٤ خانات فأكثر):", "");
+  if (pin === null) return;
+  if (String(pin).length < 4) { alert("الرقم السري قصير جداً."); return; }
+  var e = askDate("تاريخ انتهاء صلاحيته (مثال 2026-10-10 أو 10/10/2026) — اتركه فارغاً لصلاحية مفتوحة:", "");
+  if (e === null) return;
+  MEMBERS.push({ id: uid(), name: n, note: "", pinHash: hash(pin), expiry: e, active: true, last: "" });
+  saveMembers(); renderMembers();
+  alert("تمت إضافة العضو: " + n + "\n\nالرقم السري: " + pin + (e ? "\nالصلاحية حتى: " + fmtDate(e) : "\nالصلاحية: مفتوحة") +
+    "\n\nأبلغه بها — لن تظهر مرة أخرى.");
+}
+function memPin(i) {
+  if (!needOwner()) return;
+  var pin = prompt("رقم سري جديد لـ " + (MEMBERS[i].name || "العضو") + ":", "");
+  if (pin === null) return;
+  if (String(pin).length < 4) { alert("الرقم السري قصير جداً."); return; }
+  MEMBERS[i].pinHash = hash(pin); saveMembers();
+  alert("تم تغيير الرقم السري إلى: " + pin);
+}
+function memToggle(i) {
+  if (!needOwner()) return;
+  MEMBERS[i].active = (MEMBERS[i].active === false); saveMembers(); renderMembers();
+}
+function memDel(i) {
+  if (!needOwner()) return;
+  if (!confirm("حذف العضو «" + (MEMBERS[i].name || "") + "»؟ لن يستطيع الدخول بعدها.")) return;
+  MEMBERS.splice(i, 1); saveMembers(); renderMembers();
+}
+function memAllExpiry() {
+  if (!needOwner()) return;
+  var e = askDate("تاريخ انتهاء صلاحية موحّد لكل الأعضاء (مثال 2026-10-10 أو 10/10/2026) — فارغ = صلاحية مفتوحة:", "");
+  if (e === null) return;
+  MEMBERS.forEach(function (m) { m.expiry = e; });
+  saveMembers(); renderMembers();
+}
+
+function setOwnerPin() {
+  if (!needOwner()) return;
+  if (ACCESS.pinHash) {
+    var cur = prompt("أدخل كلمة المرور الحالية:");
+    if (cur === null) return;
+    if (hash(cur) !== ACCESS.pinHash) { alert("كلمة المرور الحالية غير صحيحة."); return; }
+  }
+  var n = prompt("اكتب كلمة مرور المالك الجديدة (اتركها فارغة لإلغاء الحماية):", "");
+  if (n === null) return;
+  if (!n) { STORE.set("srv_pin", null); ACCESS.pinHash = null; ACCESS.ownerHash = null; alert("تم إلغاء حماية نسخة المالك."); return; }
+  ACCESS.pinHash = hash(n); ACCESS.ownerHash = ACCESS.pinHash; STORE.set("srv_pin", ACCESS.pinHash);
+  alert("تم ضبط كلمة مرور المالك. ستُطلب عند فتح البرنامج في هذا الجهاز، وتصلح أيضاً لفتح أي نسخة زملاء انتهت صلاحيتها.");
+}
+function exportUpdatePack() {
+  if (!needOwner()) return;
+  var pin = prompt("كلمة مرور نسخة الزملاء بعد التحديث (اتركها فارغة لإلغاء الحماية):", "");
+  if (pin === null) return;
+  var exp = askDate("تاريخ انتهاء الصلاحية الجديد (مثال 2026-10-10 أو 10/10/2026) — اتركه فارغاً لصلاحية مفتوحة:", "");
+  if (exp === null) return;
+  var pack = {
+    type: "update", ownerHash: ACCESS.ownerHash || null, db: DB, settings: SETTINGS, members: MEMBERS,
+    pinHash: pin ? hash(pin) : null, expiry: normDate(exp), when: todayISO()
+  };
+  dl(new Blob([JSON.stringify(pack)], { type: "application/json" }), "حزمة_تحديث_" + todayISO() + ".json");
+  setTimeout(function () {
+    alert("أرسل هذا الملف للزملاء، ويضغطون «تحديث من المالك» في نسخهم.\n\n" +
+      "سيُحدَّث لديهم: الاستطلاعات والعبارات والبيانات العامة وكلمة المرور وتاريخ الصلاحية — دون فقدان النتائج المُدخلة.");
+  }, 400);
+}
+function importUpdate(inp) {
+  var f = inp.files[0]; if (!f) return;
+  var r = new FileReader();
+  r.onload = function () {
+    try {
+      var d = JSON.parse(r.result);
+      if (d.type !== "update") throw 0;
+      if (ACCESS.ownerHash && d.ownerHash !== ACCESS.ownerHash) { alert("حزمة التحديث ليست من مالك هذه النسخة."); return; }
+      if (d.db) { DB = d.db; STORE.set("srv_dbovr" + KEY, DB); }
+      if (d.settings) { SETTINGS = Object.assign(SETTINGS, d.settings); }
+      if (d.members) { MEMBERS = d.members; MEMBERS.forEach(function (x) { x.expiry = normDate(x.expiry); }); saveMembers(); }
+      ACCESS.pinHash = d.pinHash || null; ACCESS.expiry = normDate(d.expiry);
+      STORE.set("srv_meta" + KEY, { pinHash: ACCESS.pinHash, expiry: ACCESS.expiry });
+      CUR = 0; save(); applyLock(); renderSettings(); showLogo(); renderLauncher();
+      alert("تم التحديث بنجاح." + (ACCESS.expiry ? " الصلاحية حتى " + fmtDate(ACCESS.expiry) + "." : ""));
+    } catch (e) { alert("ملف غير صالح."); }
+  };
+  r.readAsText(f); inp.value = "";
+}
+boot();
+gate();
+</script>
+</body>
+</html>
