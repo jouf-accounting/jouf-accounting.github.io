@@ -177,11 +177,11 @@
     return ok;
   }
 
-  async function pushCommittees() {
+  async function pushCommittees(phase) {
     const base = BASE.committees, admin = isAdmin();
     const cur = new Map(DB.committees.map((c) => [c.id, c]));
     let ok = true;
-    for (const [id, c] of cur) {
+    if (phase !== 'del') for (const [id, c] of cur) {
       const j = JSON.stringify(commRow(c));
       if (base.get(id) === j) continue;
       if (!base.has(id) && !admin) continue;
@@ -189,7 +189,7 @@
       const { error } = await sb.from('committees').upsert([commRow(c)]);
       if (!error) base.set(id, j); else if (isNetErr(error)) { ok = false; LAST_ERR = error.message; } else { denied(error); base.set(id, j); }
     }
-    if (admin) for (const id of [...base.keys()]) if (!cur.has(id)) {
+    if (admin && phase === 'del') for (const id of [...base.keys()]) if (!cur.has(id)) {
       const { error } = await sb.from('committees').delete().eq('id', id);
       if (!error) base.delete(id); else if (isNetErr(error)) ok = false; else { denied(error); base.delete(id); }
     }
@@ -259,7 +259,7 @@
     pushing = true; setConn('busy'); let ok = true;
     try {
       ok = (await pushSimpleAdmin('departments', 'departments', DB.departments || [], depRow)) && ok;
-      ok = (await pushCommittees()) && ok;
+      ok = (await pushCommittees('up')) && ok;
       ok = (await pushUsers()) && ok;
       if (isAdmin()) {
         const sj = J(DB.settings);
@@ -269,6 +269,7 @@
       ok = (await pushAppVersions()) && ok;
       for (const C of ['goals', 'templates', 'tasks', 'kpis', 'visits', 'clo', 'files', 'initiatives', 'events', 'collegeEvents', 'notifs', 'log'])
         ok = (await pushColl(C)) && ok;
+      ok = (await pushCommittees('del')) && ok;   // حذف اللجان بعد حذف قوالبها ومراجعها
     } catch (e) { ok = false; LAST_ERR = e.message || String(e); console.error(e); }
     pushing = false;
     setConn(ok ? 'ok' : 'err');
@@ -636,7 +637,7 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
     try { const { data, error } = await sb.rpc('public_bootstrap'); if (error) throw error; applyBootstrap(data || {}); hasAdmin = !!(data && data.has_admin); }
     catch (e) { $('#lgHint').innerHTML = '<span class="bad">تعذر الاتصال بقاعدة البيانات: ' + esc(e.message || e) + '</span>'; }
     const S = DB.settings;
-    document.title = (DB.departments || []).length > 1 ? 'نظام إدارة أعمال أقسام ' + S.college : 'نظام إدارة أعمال ' + S.dept + (S.college ? ' ب' + S.college : '');
+    document.title = siteTitle();
     renderLanding();
     if (!hasAdmin) $('#lgHint').textContent = 'لم يُنشأ حساب المالك بعد. أنشئه بسكربت create-owner كما في دليل التشغيل.';
     const ss = readSession();
