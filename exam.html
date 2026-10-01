@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="google" content="notranslate">
+<meta name="robots" content="noindex">
+<title>اختبار الجاهزية</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#16221F;--muted:#55665F;--green:#1D5445;--green2:#2B6E5B;--brass:#A9822F;--paper:#F3F1EC;--line:#D6E1DB;--alt:#F4F8F6;
+  --ok:#1E7A46;--okbg:#DDF1E5;--mid:#B45309;--midbg:#FDF0D9;--bad:#B01B2E;--badbg:#FBE4E6}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:"IBM Plex Sans Arabic","Segoe UI",Tahoma,Arial,sans-serif;background:var(--paper);color:var(--ink);font-size:15px;line-height:1.7;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle;flex:none}
+.wrap{max-width:780px;margin:0 auto;padding:18px 16px 40px}
+.top{background:var(--green);color:#fff;background-image:repeating-linear-gradient(0deg,transparent 0 23px,rgba(255,255,255,.05) 23px 24px)}
+.top .in{max-width:780px;margin:0 auto;padding:14px 16px;display:flex;align-items:center;gap:12px}
+.top .mk{width:42px;height:42px;border-radius:12px;background:var(--brass);display:grid;place-items:center;flex:none}
+.top b{display:block;font-size:16px}.top small{opacity:.8;font-size:12.5px}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:14px;box-shadow:0 1px 2px rgba(22,34,31,.04)}
+h1{font-size:22px;margin:0 0 6px}h2{font-size:17px;margin:0 0 12px}
+label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:12px 0 4px}
+input{width:100%;font:inherit;font-size:16px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink)}
+input:focus{outline:3px solid rgba(43,110,91,.25);border-color:var(--green2)}
+.btn{font:inherit;font-weight:700;font-size:15px;border:0;border-radius:12px;padding:12px 20px;cursor:pointer;background:var(--green);color:#fff;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn:hover{background:var(--green2)}.btn[disabled]{opacity:.5;cursor:not-allowed}
+.btn.wide{width:100%;margin-top:16px}
+.btn.ghost{background:#fff;color:var(--green);border:1px solid var(--line)}.btn.ghost:hover{background:var(--alt)}
+.btn.gold{background:var(--brass)}.btn.gold:hover{background:#94701f}
+.err{background:var(--badbg);color:var(--bad);border-radius:12px;padding:10px 14px;margin-top:12px;font-weight:600;font-size:14px}
+.note{background:var(--alt);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:14px;color:var(--muted)}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:14px 0}
+.facts div{background:var(--alt);border-radius:12px;padding:12px;text-align:center}
+.facts b{display:block;font-size:22px}.facts span{font-size:12.5px;color:var(--muted)}
+ul.rules{margin:8px 0 0;padding-inline-start:20px}ul.rules li{margin-bottom:4px}
+/* شاشة الاختبار */
+.bar{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line);box-shadow:0 2px 10px rgba(22,34,31,.05)}
+.bar .in{max-width:780px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.timer{font-variant-numeric:tabular-nums;font-weight:700;font-size:18px;background:var(--alt);border-radius:10px;padding:4px 12px;display:flex;align-items:center;gap:6px}
+.timer.warn{background:var(--badbg);color:var(--bad)}
+.prog{flex:1;min-width:140px}.prog .t{font-size:12.5px;color:var(--muted)}
+.prog .track{height:8px;background:#E7ECE9;border-radius:999px;overflow:hidden}.prog .track i{display:block;height:100%;background:var(--green);border-radius:999px;transition:width .2s}
+.qno{font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px}
+.qtext{font-size:17px;font-weight:600;margin:0 0 14px;line-height:1.9;white-space:pre-wrap}
+.opt{display:flex;align-items:flex-start;gap:12px;width:100%;text-align:right;font:inherit;font-size:15.5px;background:#fff;border:2px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;cursor:pointer;color:var(--ink)}
+.opt:hover{border-color:var(--green2);background:var(--alt)}
+.opt .l{width:30px;height:30px;border-radius:50%;background:var(--alt);display:grid;place-items:center;font-weight:700;flex:none;border:1px solid var(--line)}
+.opt.on{border-color:var(--green);background:#EAF3EF}.opt.on .l{background:var(--green);color:#fff;border-color:var(--green)}
+.opt:focus-visible{outline:3px solid rgba(43,110,91,.35);outline-offset:2px}
+.nav{display:flex;gap:10px;justify-content:space-between;margin-top:6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:6px}
+.grid button{font:inherit;font-weight:700;font-size:13px;height:38px;border-radius:10px;border:1px solid var(--line);background:#fff;cursor:pointer;color:var(--muted)}
+.grid button.a{background:var(--green);color:#fff;border-color:var(--green)}
+.grid button.cur{outline:3px solid var(--brass);outline-offset:1px}
+/* النتيجة */
+.hero{background:var(--green);color:#fff;border-radius:18px;padding:24px;text-align:center;margin-bottom:14px;background-image:repeating-linear-gradient(0deg,transparent 0 23px,rgba(255,255,255,.05) 23px 24px)}
+.hero .sc{font-size:56px;font-weight:700;line-height:1.1;margin:6px 0}
+.hero .dec{display:inline-block;border-radius:999px;padding:4px 16px;font-weight:700;font-size:14px;background:#fff}
+.dec.ready{color:var(--ok)}.dec.partial{color:var(--mid)}.dec.weak{color:var(--bad)}
+.hero .sub{opacity:.85;font-size:14px;margin-top:8px}
+.sent{display:flex;align-items:center;gap:8px;background:var(--okbg);color:var(--ok);border-radius:12px;padding:10px 14px;font-weight:600;font-size:14px;margin-bottom:14px}
+.el{display:grid;grid-template-columns:1fr 120px 44px;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #EEF1EF;font-size:14px}
+.el:last-child{border-bottom:0}.el small{display:block;color:var(--muted);font-size:12px}
+.eb{height:8px;background:#E7ECE9;border-radius:999px;overflow:hidden}.eb i{display:block;height:100%;border-radius:999px}
+.sg{border-radius:12px;padding:12px 14px;margin-bottom:10px;border-inline-start:4px solid}
+.sg.weak{background:var(--badbg);border-color:var(--bad)}.sg.mid{background:var(--midbg);border-color:var(--mid)}
+.sg b{display:block}.sg span{font-size:14px}
+.rv{border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px}
+.rv.ok{border-inline-start:4px solid var(--ok)}.rv.no{border-inline-start:4px solid var(--bad)}
+.rv .h{display:flex;gap:8px;align-items:center;font-size:13px;font-weight:700;margin-bottom:6px}
+.rv .h .ok{color:var(--ok)}.rv .h .no{color:var(--bad)}
+.rv .o{padding:6px 10px;border-radius:8px;margin:4px 0;font-size:14.5px}
+.rv .o.right{background:var(--okbg);color:var(--ok);font-weight:600}.rv .o.wrong{background:var(--badbg);color:var(--bad);text-decoration:line-through}
+.rv .x{background:var(--alt);border-radius:10px;padding:10px 12px;margin-top:8px;font-size:14px}
+.rv .x b{color:var(--green)}
+.tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.tabs button{font:inherit;font-weight:600;font-size:13.5px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 14px;cursor:pointer;color:var(--muted)}
+.tabs button.on{background:var(--green);color:#fff;border-color:var(--green)}
+.center{text-align:center}
+.spin{width:36px;height:36px;border:4px solid #DCE5E0;border-top-color:var(--green);border-radius:50%;animation:sp 1s linear infinite;margin:30px auto}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media print{.top,.bar,.noprint{display:none!important}body{background:#fff}.card,.rv{break-inside:avoid}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+<symbol id="i-doc" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 10"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3L10 14"/><path d="M21 3l-7 18-4-7-7-4z"/></symbol>
+<symbol id="i-print" viewBox="0 0 24 24"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></symbol>
+<symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></symbol>
+</svg>
+<div class="top"><div class="in"><span class="mk"><svg class="ic"><use href="#i-doc"/></svg></span><div><b id="orgName">اختبار الجاهزية</b><small id="orgSub">الاختبار الإلكتروني</small></div></div></div>
+<div id="app"><div class="spin"></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+(function () {
+  'use strict';
+  var C = window.DMS_CONFIG || {};
+  var app = document.getElementById('app');
+  if (!window.supabase || !C.supabaseUrl) { app.innerHTML = '<div class="wrap"><div class="card err">تعذر تحميل الصفحة. تحقق من اتصالك بالإنترنت ثم أعد فتح الرابط.</div></div>'; return; }
+  var sb = window.supabase.createClient(C.supabaseUrl, C.supabaseAnonKey, { auth: { persistSession: false } });
+  var params = new URLSearchParams(location.search);
+  var S = { code: (params.get('c') || '').toUpperCase(), uid: '', name: '', exam: null, order: [], optOrder: {}, answers: {}, cur: 0,
+            startedAt: null, endsAt: null, timer: null, result: null, submitting: false };
+  var LET = ['أ', 'ب', 'ج', 'د', 'هـ', 'و'];
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function digits(s) { return String(s || '').replace(/[٠-٩]/g, function (d) { return d.charCodeAt(0) - 1632; }).replace(/[۰-۹]/g, function (d) { return d.charCodeAt(0) - 1776; }); }
+  function ic(n) { return '<svg class="ic"><use href="#i-' + n + '"/></svg>'; }
+  function fmt(sec) { sec = Math.max(0, Math.round(sec)); var m = Math.floor(sec / 60), s = sec % 60; return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s; }
+  function hashStr(str) { var h = 2166136261 >>> 0; for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h >>> 0; }
+  function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; var t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  function shuffle(arr, r) { var a = arr.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(r() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  function key() { return 'oex:' + S.exam.id + ':' + S.uid; }
+  function persist() { try { localStorage.setItem(key(), JSON.stringify({ answers: S.answers, startedAt: S.startedAt, endsAt: S.endsAt, name: S.name, cur: S.cur })); } catch (e) {} }
+  function setOrg(o) { if (o && o.systemName) document.getElementById('orgName').textContent = o.systemName; if (o && o.university) document.getElementById('orgSub').textContent = o.university; }
+
+  /* ---------------- الدخول ---------------- */
+  function screenLogin(msg) {
+    app.innerHTML = '<div class="wrap"><div class="card"><h1>الدخول إلى الاختبار</h1>' +
+      '<p class="note" style="margin:6px 0 4px">اكتب رمز الاختبار الذي أرسله لك الدكتور، ورقمك الجامعي.</p>' +
+      '<label for="fCode">رمز الاختبار</label><input id="fCode" autocomplete="off" dir="ltr" style="text-align:center;letter-spacing:4px;font-weight:700" value="' + esc(S.code) + '">' +
+      '<label for="fUid">الرقم الجامعي</label><input id="fUid" inputmode="numeric" autocomplete="off" dir="ltr" style="text-align:center" value="' + esc(S.uid) + '">' +
+      '<div id="nameBox" style="display:none"><label for="fName">الاسم الكامل</label><input id="fName" autocomplete="name"></div>' +
+      (msg ? '<div class="err">' + esc(msg) + '</div>' : '') +
+      '<button class="btn wide" id="go">دخول ' + ic('send') + '</button></div></div>';
+    var go = document.getElementById('go');
+    function submit() {
+      S.code = digits(document.getElementById('fCode').value).trim().toUpperCase();
+      S.uid = digits(document.getElementById('fUid').value).trim();
+      var nm = document.getElementById('fName'); if (nm && nm.value) S.name = nm.value.trim();
+      if (!S.code || !S.uid) { screenLogin('اكتب رمز الاختبار ورقمك الجامعي.'); return; }
+      go.disabled = true; go.textContent = 'جارٍ التحقق…';
+      sb.rpc('exam_open', { p_code: S.code, p_uid: S.uid }).then(function (r) {
+        if (r.error) { screenLogin('تعذر الاتصال. تحقق من الإنترنت ثم حاول مرة أخرى.'); return; }
+        var d = r.data;
+        if (!d || !d.ok) { screenLogin((d && d.error) || 'تعذر فتح الاختبار.'); return; }
+        S.exam = d.exam; S.uid = d.student.uid; if (d.student.name) S.name = d.student.name;
+        setOrg(S.exam.org);
+        var rnd = rng(hashStr(S.exam.id + '|' + S.uid));
+        var ids = S.exam.questions.map(function (q) { return q.id; });
+        S.order = S.exam.shuffleQuestions ? shuffle(ids, rnd) : ids;
+        S.exam.questions.forEach(function (q) { var o = q.options.map(function (_, i) { return i; }); S.optOrder[q.id] = S.exam.shuffleOptions ? shuffle(o, rnd) : o; });
+        var saved = null; try { saved = JSON.parse(localStorage.getItem(key()) || 'null'); } catch (e) {}
+        if (saved && saved.endsAt) {
+          S.answers = saved.answers || {}; S.startedAt = saved.startedAt; S.endsAt = saved.endsAt; S.cur = saved.cur || 0; if (saved.name) S.name = saved.name;
+          if (Date.now() >= S.endsAt) { doSubmit(true); return; }
+          screenExam(); return;
+        }
+        screenBrief();
+      });
+    }
+    go.onclick = submit;
+    ['fCode', 'fUid'].forEach(function (id) { document.getElementById(id).onkeydown = function (e) { if (e.key === 'Enter') submit(); }; });
+    if (S.code && !S.uid) document.getElementById('fUid').focus();
+  }
+
+  /* ---------------- التعليمات ---------------- */
+  function screenBrief() {
+    var needName = S.exam.needName && !S.name;
+    app.innerHTML = '<div class="wrap"><div class="card"><h1>' + esc(S.exam.title) + '</h1>' +
+      (S.name ? '<p style="margin:0;color:var(--muted)">الطالب: <b style="color:var(--ink)">' + esc(S.name) + '</b> · ' + esc(S.uid) + '</p>' : '') +
+      '<div class="facts"><div><b>' + S.exam.count + '</b><span>سؤالًا</span></div><div><b>' + S.exam.duration + '</b><span>دقيقة</span></div></div>' +
+      '<ul class="rules"><li>يبدأ العدّاد عند الضغط على «ابدأ الاختبار»، ويُسلَّم الاختبار تلقائيًا عند انتهاء الوقت.</li>' +
+      '<li>إجاباتك تُحفظ على جهازك أولًا بأول؛ إن انقطع الاتصال أو أُغلقت الصفحة فافتح الرابط نفسه لتكمل.</li>' +
+      '<li>تستطيع التنقل بين الأسئلة وتغيير إجابتك قبل التسليم.</li>' +
+      '<li>بعد التسليم تظهر نتيجتك فورًا مع شرح الإجابات ومقترحات للتحسين، وتصل للدكتور مباشرة.</li></ul>' +
+      (needName ? '<label for="fName2">الاسم الكامل (كما في سجلات الجامعة)</label><input id="fName2" autocomplete="name">' : '') +
+      '<div id="bErr"></div><button class="btn wide gold" id="start">ابدأ الاختبار</button></div></div>';
+    document.getElementById('start').onclick = function () {
+      if (needName) {
+        var v = (document.getElementById('fName2').value || '').trim();
+        if (v.length < 3) { document.getElementById('bErr').innerHTML = '<div class="err">اكتب اسمك الكامل.</div>'; return; }
+        S.name = v;
+      }
+      S.startedAt = new Date().toISOString();
+      S.endsAt = Date.now() + S.exam.duration * 60000;
+      if (S.exam.closes_at) S.endsAt = Math.min(S.endsAt, new Date(S.exam.closes_at).getTime());
+      persist(); screenExam();
+    };
+  }
+
+  /* ---------------- الاختبار ---------------- */
+  function qById(id) { for (var i = 0; i < S.exam.questions.length; i++) if (S.exam.questions[i].id === id) return S.exam.questions[i]; return null; }
+  function answered() { return Object.keys(S.answers).length; }
+  function screenExam() {
+    app.innerHTML = '<div class="bar"><div class="in"><span class="timer" id="tm">' + ic('clock') + ' <span id="tmv">--:--</span></span>' +
+      '<div class="prog"><div class="t" id="pt"></div><div class="track"><i id="pb"></i></div></div>' +
+      '<button class="btn gold" id="fin">' + ic('send') + ' تسليم</button></div></div>' +
+      '<div class="wrap"><div class="card" id="qcard"></div><div class="card"><h2>الأسئلة</h2><div class="grid" id="grid"></div></div></div>';
+    document.getElementById('fin').onclick = confirmSubmit;
+    drawQ(); tick(); clearInterval(S.timer); S.timer = setInterval(tick, 1000);
+  }
+  function tick() {
+    var left = (S.endsAt - Date.now()) / 1000, el = document.getElementById('tmv');
+    if (!el) return;
+    el.textContent = fmt(left);
+    document.getElementById('tm').className = 'timer' + (left < 300 ? ' warn' : '');
+    if (left <= 0) { clearInterval(S.timer); doSubmit(true); }
+  }
+  function drawQ() {
+    var id = S.order[S.cur], q = qById(id), n = S.order.length, a = answered();
+    document.getElementById('pt').textContent = 'أجبت عن ' + a + ' من ' + n;
+    document.getElementById('pb').style.width = Math.round(a / n * 100) + '%';
+    var h = '<div class="qno">السؤال ' + (S.cur + 1) + ' من ' + n + '</div><p class="qtext">' + esc(q.text) + '</p>';
+    S.optOrder[id].forEach(function (oi, k) {
+      var on = S.answers[id] === oi;
+      h += '<button class="opt' + (on ? ' on' : '') + '" data-o="' + oi + '" aria-pressed="' + on + '"><span class="l">' + (LET[k] || k + 1) + '</span><span>' + esc(q.options[oi]) + '</span></button>';
+    });
+    h += '<div class="nav"><button class="btn ghost" id="prev"' + (S.cur === 0 ? ' disabled' : '') + '>السابق</button>' +
+      (S.cur < n - 1 ? '<button class="btn" id="next">التالي</button>' : '<button class="btn gold" id="next">مراجعة وتسليم</button>') + '</div>';
+    var c = document.getElementById('qcard'); c.innerHTML = h;
+    c.querySelectorAll('.opt').forEach(function (b) {
+      b.onclick = function () { S.answers[id] = +b.getAttribute('data-o'); persist(); drawQ(); };
+    });
+    document.getElementById('prev').onclick = function () { if (S.cur > 0) { S.cur--; persist(); drawQ(); scrollTo(0, 0); } };
+    document.getElementById('next').onclick = function () { if (S.cur < n - 1) { S.cur++; persist(); drawQ(); scrollTo(0, 0); } else confirmSubmit(); };
+    var g = ''; S.order.forEach(function (qid, i) { g += '<button class="' + (S.answers[qid] !== undefined ? 'a' : '') + (i === S.cur ? ' cur' : '') + '" data-i="' + i + '" aria-label="السؤال ' + (i + 1) + '">' + (i + 1) + '</button>'; });
+    var gr = document.getElementById('grid'); gr.innerHTML = g;
+    gr.querySelectorAll('button').forEach(function (b) { b.onclick = function () { S.cur = +b.getAttribute('data-i'); persist(); drawQ(); scrollTo(0, 0); }; });
+  }
+  function confirmSubmit() {
+    var left = S.order.length - answered();
+    if (!confirm(left ? 'لم تُجب عن ' + left + ' سؤالًا. هل تريد التسليم الآن؟' : 'تسليم الاختبار الآن؟ لن تستطيع تعديل إجاباتك بعد التسليم.')) return;
+    doSubmit(false);
+  }
+
+  /* ---------------- التسليم ---------------- */
+  function doSubmit(auto) {
+    if (S.submitting) return; S.submitting = true; clearInterval(S.timer);
+    app.innerHTML = '<div class="wrap"><div class="card center"><div class="spin"></div><h2>جارٍ إرسال إجاباتك وتصحيحها…</h2>' +
+      (auto ? '<p class="note">انتهى الوقت، فسُلّم الاختبار تلقائيًا بما أجبت عنه.</p>' : '') + '</div></div>';
+    var ans = {}; Object.keys(S.answers).forEach(function (k) { ans[k] = S.answers[k]; });
+    sb.rpc('exam_submit', { p_code: S.code, p_uid: S.uid, p_name: S.name || '', p_answers: ans, p_started: S.startedAt, p_auto: !!auto }).then(function (r) {
+      S.submitting = false;
+      if (r.error || !r.data) { screenRetry('تعذر إرسال إجاباتك بسبب الاتصال. إجاباتك محفوظة على جهازك — اضغط «إعادة الإرسال».', auto); return; }
+      if (!r.data.ok) {
+        if (r.data.submitted) { try { localStorage.removeItem(key()); } catch (e) {} }
+        screenRetry(r.data.error || 'تعذر التسليم.', auto, r.data.submitted); return;
+      }
+      try { localStorage.removeItem(key()); } catch (e) {}
+      S.result = r.data; screenResult();
+    });
+  }
+  function screenRetry(msg, auto, final) {
+    app.innerHTML = '<div class="wrap"><div class="card"><h2>' + (final ? 'تم التسليم مسبقًا' : 'لم يكتمل الإرسال') + '</h2><div class="err">' + esc(msg) + '</div>' +
+      (final ? '' : '<button class="btn wide" id="retry">' + ic('send') + ' إعادة الإرسال</button>') + '</div></div>';
+    var b = document.getElementById('retry'); if (b) b.onclick = function () { doSubmit(auto); };
+  }
+
+  /* ---------------- النتيجة ---------------- */
+  function decCls(d) { return d === 'جاهز' ? 'ready' : d === 'شبه جاهز' ? 'partial' : 'weak'; }
+  function barColor(p, t) { return p >= t.ready ? 'var(--ok)' : p >= t.partial ? 'var(--mid)' : 'var(--bad)'; }
+  function screenResult(tab) {
+    var R = S.result, t = R.thresholds || { ready: 80, partial: 60 };
+    tab = tab || 'sum';
+    var h = '<div class="wrap">';
+    h += '<div class="sent noprint">' + ic('check') + ' استُلمت إجاباتك ووصلت نتيجتك إلى الدكتور.</div>';
+    h += '<div class="hero"><div>' + esc(S.exam.title) + '</div><div style="opacity:.85;font-size:14px">' + esc(R.student.name) + ' · ' + esc(R.student.uid) + '</div>';
+    if (R.score != null) h += '<div class="sc">' + R.score + '%</div><span class="dec ' + decCls(R.decision) + '">' + esc(R.decision) + '</span>' +
+      '<div class="sub">إجابات صحيحة: ' + R.correct + ' من ' + R.total + ' · حد الجاهزية ' + t.ready + '%</div>';
+    else h += '<div class="sub" style="margin-top:12px">ستعلن نتيجتك من الدكتور.</div>';
+    h += '</div>';
+    var hasEl = R.elements && R.elements.length, hasRv = R.review && R.review.length;
+    if (hasEl || hasRv) {
+      h += '<div class="tabs noprint">' + (hasEl ? '<button data-t="sum" class="' + (tab === 'sum' ? 'on' : '') + '">التحليل والمقترحات</button>' : '') +
+        (hasRv ? '<button data-t="rev" class="' + (tab === 'rev' ? 'on' : '') + '">مراجعة الإجابات مع الشرح</button>' : '') + '</div>';
+    }
+    if (hasEl && (tab === 'sum' || !hasRv)) {
+      if (R.suggestions && R.suggestions.length) {
+        h += '<div class="card"><h2>' + ic('bulb') + ' مقترحات لتطوير نتيجتك</h2>';
+        R.suggestions.forEach(function (s) {
+          h += '<div class="sg ' + s.level + '"><b>' + esc(s.name) + ' — ' + s.pct + '%</b><span>' + esc(s.tip || ('راجع هذا الموضوع وحلّ أسئلة تدريبية عليه.')) + '</span></div>';
+        });
+        h += '<p class="note" style="margin:6px 0 0">ابدأ بالموضوعات الحمراء ثم البرتقالية، وراجعها في مقرراتها، ثم أعد الاختبار التجريبي لتقيس تحسنك.</p></div>';
+      } else if (R.score != null) {
+        h += '<div class="card"><h2>' + ic('bulb') + ' مقترحات</h2><p style="margin:0">أداء ممتاز في كل الموضوعات. حافظ على مستواك بمراجعة دورية وحل أسئلة محاكاة متنوعة.</p></div>';
+      }
+      h += '<div class="card"><h2>أداؤك في كل موضوع</h2>';
+      R.elements.forEach(function (e) {
+        h += '<div class="el"><div>' + esc(e.name) + (e.unit ? '<small>' + esc(e.unit) + '</small>' : '') + '</div><div class="eb"><i style="width:' + e.pct + '%;background:' + barColor(e.pct, t) + '"></i></div><b>' + e.pct + '%</b></div>';
+      });
+      h += '</div>';
+    }
+    if (hasRv && (tab === 'rev' || !hasEl)) {
+      h += '<div class="card"><h2>مراجعة الإجابات</h2>';
+      R.review.forEach(function (rv, i) {
+        var q = qById(rv.id); if (!q) return;
+        h += '<div class="rv ' + (rv.ok ? 'ok' : 'no') + '"><div class="h"><span>السؤال ' + (i + 1) + '</span>' +
+          (rv.ok ? '<span class="ok">' + ic('check') + ' إجابة صحيحة</span>' : '<span class="no">' + ic('x') + (rv.chosen == null ? ' لم تُجب' : ' إجابة خاطئة') + '</span>') + '</div>' +
+          '<div style="font-weight:600;margin-bottom:6px;white-space:pre-wrap">' + esc(q.text) + '</div>';
+        if (!rv.ok && rv.chosen != null) h += '<div class="o wrong">إجابتك: ' + esc(q.options[rv.chosen]) + '</div>';
+        h += '<div class="o right">الإجابة الصحيحة: ' + esc(q.options[rv.correct]) + '</div>';
+        if (rv.exp) h += '<div class="x"><b>الشرح:</b> ' + esc(rv.exp) + '</div>';
+        h += '</div>';
+      });
+      h += '</div>';
+    }
+    h += '<div class="center noprint" style="margin-top:6px"><button class="btn ghost" onclick="print()">' + ic('print') + ' طباعة / حفظ PDF</button></div>';
+    h += '<p class="center" style="color:var(--muted);font-size:12.5px;margin-top:14px">وقت التسليم: ' + new Date(R.submitted_at).toLocaleString('ar-SA') + '</p></div>';
+    app.innerHTML = h;
+    app.querySelectorAll('.tabs button').forEach(function (b) { b.onclick = function () { screenResult(b.getAttribute('data-t')); scrollTo(0, 0); }; });
+  }
+
+  window.addEventListener('beforeunload', function (e) { if (S.timer && !S.result) { e.preventDefault(); e.returnValue = ''; } });
+  screenLogin();
+})();
+</script>
+</body>
+</html>
