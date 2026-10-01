@@ -5,7 +5,7 @@
 <meta name="google" content="notranslate">
 <meta http-equiv="Content-Language" content="ar">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>نظام إدارة أعمال قسم المحاسبة – كلية الأعمال</title>
+<title>قسم المحاسبة بكلية الأعمال</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
 <style>
@@ -433,7 +433,7 @@ async function boot(){
   /* v2.4: لا يُنشأ حساب افتراضي بكلمة مرور معروفة؛ يُعرض معالج أول تشغيل */
   const S=DB.settings;
   $('#lgOrg').textContent=S.university+' · '+S.college;
-  document.title='نظام إدارة أعمال '+S.dept+' – '+S.college;
+  document.title=siteTitle();
   renderLanding();
   const onlyDefault=DB.users.length===1&&DB.users[0].mustChange;
   setSync(syncCfg()?SY.state:'off');
@@ -1881,7 +1881,7 @@ function scopeAllowed(u,s){if(!u||u.active===false)return false;if(s==='owner')r
   const c=(DB.committees||[]).find(x=>x.id===s);if(!c)return false;return !!(u.isAdmin||u.collegeRole||(u.headDept&&c.dept===u.headDept)||(u.memberships||{})[s])}
 function renderLanding(){
   const S=DB.settings;
-  $('#lgOrg').textContent=S.university+' · '+S.college;$('#lgTitle').textContent='نظام إدارة أعمال '+S.dept;
+  $('#lgOrg').textContent=S.university+' · '+S.college;$('#lgTitle').textContent=siteTitle();
   const sysOf=cid=>systems().filter(x=>(x.committees||[]).includes(cid)).map(x=>x.name.replace(/^نظام\s*/,''));
   const tile=(s,name,desc,chips,cls)=>`<button class="tile ${cls||''}" style="--c:${scopeColor(s)}" onclick="pickScope('${s}')"><span class="tile-top"><span class="tile-ic">${icon(scopeIcon(s),46)}</span></span><span class="tile-b"><span class="tile-n">${esc(name)}</span>${desc?`<span class="tile-d">${esc(desc)}</span>`:''}${chips&&chips.length?`<span class="tile-chips">${chips.map(x=>`<i>${esc(x)}</i>`).join('')}</span>`:''}<span class="tile-go">دخول</span></span></button>`;
   $('#tiles').innerHTML=DB.committees.map(c=>tile(c.id,c.name,c.desc,sysOf(c.id))).join('')+tile('head','لوحة رئيس القسم','متابعة إنجاز كل اللجان والمؤشرات والرسوم البيانية',[],'alt')+tile('owner','الإعدادات العامة','خاصة بالمالك: المستخدمون والصلاحيات، إعدادات اللجان، تحديث الأنظمة، المزامنة',[],'alt');
@@ -2008,7 +2008,7 @@ function pgCSettings(){
     <label class="f">اسم اللجنة<input id="csN" value="${esc(c.name)}"></label><label class="f">اللون<input type="color" id="csH" value="${c.hex}" style="height:40px"></label>
     <label class="f full">الوصف (يظهر في خلية اللجنة)<input id="csD" value="${esc(c.desc||'')}"></label>
     <div class="full"><div class="small muted" style="margin-bottom:6px">أيقونة الخلية</div><div class="icpick">${['training','readiness','exams','quality','receptions','layers','book','calendar','chart','users','plan','file','kpi','approve'].map(k=>`<label><input type="radio" name="csI" value="${k}" ${o.icon===k?'checked':''}><span style="--c:${c.hex}">${icon(k,26)}</span></label>`).join('')}</div></div>
-    <div class="full"><button class="btn primary" onclick="saveCommInfo('${cid}')">حفظ بيانات اللجنة</button></div></div></div>`;
+    <div class="full" style="display:flex;gap:8px"><button class="btn primary" onclick="saveCommInfo('${cid}')">حفظ بيانات اللجنة</button><span style="flex:1"></span><button class="btn danger" onclick="delCommittee('${cid}')">حذف اللجنة</button></div></div></div>`;
   const users=DB.users.filter(u=>u.active!==false&&!u.isAdmin);
   h+=`<div class="panel"><h3>الأعضاء والصلاحيات<span class="sp"></span><button class="btn sm" onclick="newUserFor('${cid}')">مستخدم جديد للجنة</button></h3><div class="tbl-wrap"><table class="t"><tr><th>الاسم</th><th>اسم المستخدم</th><th>الصلاحية في اللجنة</th><th>مهامه في اللجنة</th></tr>
    ${users.map(u=>{const r=(u.memberships||{})[cid]||'';const ts=DB.tasks.filter(t=>t.committee===cid&&t.assignee===u.id&&t.status!=='arch');
@@ -2145,6 +2145,25 @@ Object.assign(ICONS,{
  dept:'<rect x="4" y="3" width="16" height="18" rx="1"/><path d="M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2"/>'
 });
 var SEL_DEPT=null,LAND_DEPT=null;
+/* حذف لجنة (المالك): تُحذف نسخها في كل الأقسام بشرط ألا يكون فيها عمل مسجل */
+function delCommittee(cid){
+  if(!isAdmin())return;const c=comm(cid);if(!c||!c.id)return;const t=c.type||c.id;
+  const group=DB.committees.filter(x=>(x.type||x.id)===t),ids=new Set(group.map(x=>x.id)),nm=c.baseName||c.name;
+  const n=DB.tasks.filter(x=>ids.has(x.committee)).length+DB.kpis.filter(x=>ids.has(x.committee)).length+DB.files.filter(x=>ids.has(x.committee)).length
+    +DB.clo.filter(x=>ids.has(x.committee)).length+DB.visits.filter(x=>ids.has(x.committee)).length+(DB.initiatives||[]).filter(x=>ids.has(x.committee)).length;
+  if(n){alert('لا يمكن حذف «'+nm+'» لأن فيها '+n+' من المهام أو المؤشرات أو الملفات أو الزيارات. احذفها أو انقلها أولًا.');return}
+  if(!confirm('حذف «'+nm+'»'+(group.length>1?' من كل الأقسام ('+group.length+' لجان)':'')+'؟\nتُحذف معها قوالب مهامها وعضوياتها. لا يمكن التراجع.'))return;
+  DB.committees=DB.committees.filter(x=>!ids.has(x.id));
+  DB.templates=(DB.templates||[]).filter(x=>!ids.has(x.committee));
+  DB.events=(DB.events||[]).filter(x=>!ids.has(x.committee));
+  DB.users.forEach(u=>ids.forEach(k=>{if(u.memberships)delete u.memberships[k]}));
+  const S=DB.settings;S.appComm=S.appComm||{};
+  Object.keys(Object.assign({},APPS,MODULE_DEF)).concat((DB.customApps||[]).map(x=>x.id)).forEach(k=>{
+    const cur=Array.isArray(S.appComm[k])?S.appComm[k]:[defaultComm(k)];
+    if(cur.some(x=>x===t||ids.has(x)))S.appComm[k]=cur.filter(x=>x!==t&&!ids.has(x))});
+  audit('حذف لجنة',nm,group.length+' نسخة');save();go('home');toast('حُذفت اللجنة')}
+/* عنوان الموقع: يُبنى من اسم القسم والكلية في «الإعدادات العامة» */
+function siteTitle(){const S=DB.settings,many=(DB.departments||[]).length>1;return many?'أقسام '+S.college:S.dept+(S.college?' ب'+S.college:'')}
 function deptOf(cid){const c=((DB&&DB.committees)||[]).find(x=>x.id===cid);return c?(c.dept||''):''}
 function deptById(id){return ((DB&&DB.departments)||[]).find(d=>d.id===id)||null}
 function deptName(id){const d=deptById(id);return d?d.name:'—'}
@@ -2300,7 +2319,7 @@ function setLandDept(id){LAND_DEPT=id;try{localStorage.setItem('dms-land-dept',i
 renderLanding=function(){
   const S=DB.settings,deps=DB.departments||[];
   $('#lgOrg').textContent=S.university+' · '+S.college;
-  $('#lgTitle').textContent=deps.length>1?'نظام إدارة أعمال أقسام '+S.college:'نظام إدارة أعمال '+S.dept+(S.college?' ب'+S.college:'');
+  $('#lgTitle').textContent=siteTitle();
   let sel=LAND_DEPT;try{sel=sel||localStorage.getItem('dms-land-dept')}catch(e){}
   if(!deps.some(d=>d.id===sel))sel=deps[0]?deps[0].id:'';LAND_DEPT=sel;
   const sysOf=cid=>systems().filter(x=>(x.committees||[]).includes(cid)).map(x=>x.name.replace(/^نظام\s*/,''));
