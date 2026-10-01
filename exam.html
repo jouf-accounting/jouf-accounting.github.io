@@ -47,7 +47,7 @@ ul.rules{margin:8px 0 0;padding-inline-start:20px}ul.rules li{margin-bottom:4px}
 .qno{font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px}
 .qtext{font-size:17px;font-weight:600;margin:0 0 14px;line-height:1.9;white-space:pre-wrap}
 .opt{display:flex;align-items:flex-start;gap:12px;width:100%;text-align:right;font:inherit;font-size:15.5px;background:#fff;border:2px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;cursor:pointer;color:var(--ink)}
-.opt:hover{border-color:var(--green2);background:var(--alt)}
+@media (hover:hover){.opt:hover{border-color:#9DB8AD}}
 .opt .l{width:30px;height:30px;border-radius:50%;background:var(--alt);display:grid;place-items:center;font-weight:700;flex:none;border:1px solid var(--line)}
 .opt.on{border-color:var(--green);background:#EAF3EF}.opt.on .l{background:var(--green);color:#fff;border-color:var(--green)}
 .opt:focus-visible{outline:3px solid rgba(43,110,91,.35);outline-offset:2px}
@@ -81,9 +81,16 @@ ul.rules{margin:8px 0 0;padding-inline-start:20px}ul.rules li{margin-bottom:4px}
 .tabs button{font:inherit;font-weight:600;font-size:13.5px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 14px;cursor:pointer;color:var(--muted)}
 .tabs button.on{background:var(--green);color:#fff;border-color:var(--green)}
 .center{text-align:center}
+.qtimer{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:13px;font-weight:700;color:var(--muted)}
+.qtimer .tr{flex:1;height:6px;background:#E7ECE9;border-radius:999px;overflow:hidden}.qtimer .tr i{display:block;height:100%;background:var(--brass);border-radius:999px;transition:width 1s linear}
+.qtimer.warn{color:var(--bad)}.qtimer.warn .tr i{background:var(--bad)}
+.grid button[disabled]{cursor:default}
+.need{font-size:13px;color:var(--mid);font-weight:600;margin-top:8px}
+.warnbar{background:var(--badbg);color:var(--bad);font-weight:600;font-size:13.5px;padding:8px 16px;text-align:center}
+body.nocopy .qtext,body.nocopy .opt{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .spin{width:36px;height:36px;border:4px solid #DCE5E0;border-top-color:var(--green);border-radius:50%;animation:sp 1s linear infinite;margin:30px auto}
 @keyframes sp{to{transform:rotate(360deg)}}
-@media print{.top,.bar,.noprint{display:none!important}body{background:#fff}.card,.rv{break-inside:avoid}}
+@media print{body.nocopy *{display:none!important}.top,.bar,.noprint{display:none!important}body{background:#fff}.card,.rv{break-inside:avoid}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -111,7 +118,7 @@ ul.rules{margin:8px 0 0;padding-inline-start:20px}ul.rules li{margin-bottom:4px}
   var sb = window.supabase.createClient(C.supabaseUrl, C.supabaseAnonKey, { auth: { persistSession: false } });
   var params = new URLSearchParams(location.search);
   var S = { code: (params.get('c') || '').toUpperCase(), uid: '', name: '', exam: null, order: [], optOrder: {}, answers: {}, cur: 0,
-            startedAt: null, endsAt: null, timer: null, result: null, submitting: false };
+            startedAt: null, endsAt: null, timer: null, result: null, submitting: false, qEnd: null, blur: 0, timedOut: 0, reason: '', warned: false };
   var LET = ['أ', 'ب', 'ج', 'د', 'هـ', 'و'];
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -122,7 +129,9 @@ ul.rules{margin:8px 0 0;padding-inline-start:20px}ul.rules li{margin-bottom:4px}
   function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; var t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
   function shuffle(arr, r) { var a = arr.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(r() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
   function key() { return 'oex:' + S.exam.id + ':' + S.uid; }
-  function persist() { try { localStorage.setItem(key(), JSON.stringify({ answers: S.answers, startedAt: S.startedAt, endsAt: S.endsAt, name: S.name, cur: S.cur })); } catch (e) {} }
+  function persist() { try { localStorage.setItem(key(), JSON.stringify({ answers: S.answers, startedAt: S.startedAt, endsAt: S.endsAt, name: S.name, cur: S.cur, qEnd: S.qEnd, blur: S.blur, timedOut: S.timedOut })); } catch (e) {} }
+  function locked() { return !!(S.exam && (S.exam.forwardOnly || S.exam.perQuestionSec > 0)); }
+  function active() { return !!(S.exam && S.startedAt && !S.result && !S.submitting && document.getElementById('qcard')); }
   function setOrg(o) { if (o && o.systemName) document.getElementById('orgName').textContent = o.systemName; if (o && o.university) document.getElementById('orgSub').textContent = o.university; }
 
   /* ---------------- الدخول ---------------- */
@@ -154,6 +163,7 @@ ul.rules{margin:8px 0 0;padding-inline-start:20px}ul.rules li{margin-bottom:4px}
         var saved = null; try { saved = JSON.parse(localStorage.getItem(key()) || 'null'); } catch (e) {}
         if (saved && saved.endsAt) {
           S.answers = saved.answers || {}; S.startedAt = saved.startedAt; S.endsAt = saved.endsAt; S.cur = saved.cur || 0; if (saved.name) S.name = saved.name;
+          S.qEnd = saved.qEnd || null; S.blur = saved.blur || 0; S.timedOut = saved.timedOut || 0;
           if (Date.now() >= S.endsAt) { doSubmit(true); return; }
           screenExam(); return;
         }
@@ -166,6 +176,17 @@ ul.rules{margin:8px 0 0;padding-inline-start:20px}ul.rules li{margin-bottom:4px}
   }
 
   /* ---------------- التعليمات ---------------- */
+  function rulesHtml() {
+    var E = S.exam, r = '';
+    if (E.perQuestionSec > 0) r += '<li><b>لكل سؤال ' + E.perQuestionSec + ' ثانية</b>؛ عند انتهائها ينتقل الاختبار إلى السؤال التالي تلقائيًا.</li>';
+    if (locked()) r += '<li><b>لا يمكن الرجوع إلى سؤال سابق</b> بعد الانتقال منه، فتأكد من إجابتك قبل الضغط على «التالي».</li>';
+    else r += '<li>تستطيع التنقل بين الأسئلة وتغيير إجابتك قبل التسليم.</li>';
+    if (E.requireAnswer) r += '<li><b>الإجابة إلزامية</b>: لا تنتقل إلى السؤال التالي ولا تسلّم قبل اختيار إجابة.</li>';
+    if (E.noCopy) r += '<li>النسخ وتحديد النص معطّلان أثناء الاختبار.</li>';
+    if (E.trackFocus) r += '<li><b>يُسجَّل خروجك من صفحة الاختبار</b> (فتح تطبيق أو تبويب آخر)، ويطّلع عليه الدكتور' +
+      (E.maxBlur > 0 ? '، وإذا تجاوز ' + E.maxBlur + ' مرات يُسلَّم الاختبار تلقائيًا' : '') + '.</li>';
+    return r;
+  }
   function screenBrief() {
     var needName = S.exam.needName && !S.name;
     app.innerHTML = '<div class="wrap"><div class="card"><h1>' + esc(S.exam.title) + '</h1>' +
@@ -173,7 +194,7 @@ ul.rules{margin:8px 0 0;padding-inline-start:20px}ul.rules li{margin-bottom:4px}
       '<div class="facts"><div><b>' + S.exam.count + '</b><span>سؤالًا</span></div><div><b>' + S.exam.duration + '</b><span>دقيقة</span></div></div>' +
       '<ul class="rules"><li>يبدأ العدّاد عند الضغط على «ابدأ الاختبار»، ويُسلَّم الاختبار تلقائيًا عند انتهاء الوقت.</li>' +
       '<li>إجاباتك تُحفظ على جهازك أولًا بأول؛ إن انقطع الاتصال أو أُغلقت الصفحة فافتح الرابط نفسه لتكمل.</li>' +
-      '<li>تستطيع التنقل بين الأسئلة وتغيير إجابتك قبل التسليم.</li>' +
+      rulesHtml() +
       '<li>بعد التسليم تظهر نتيجتك فورًا مع شرح الإجابات ومقترحات للتحسين، وتصل للدكتور مباشرة.</li></ul>' +
       (needName ? '<label for="fName2">الاسم الكامل (كما في سجلات الجامعة)</label><input id="fName2" autocomplete="name">' : '') +
       '<div id="bErr"></div><button class="btn wide gold" id="start">ابدأ الاختبار</button></div></div>';
@@ -185,6 +206,7 @@ ul.rules{margin:8px 0 0;padding-inline-start:20px}ul.rules li{margin-bottom:4px}
       }
       S.startedAt = new Date().toISOString();
       S.endsAt = Date.now() + S.exam.duration * 60000;
+      if (S.exam.perQuestionSec > 0) S.qEnd = Date.now() + S.exam.perQuestionSec * 1000;
       if (S.exam.closes_at) S.endsAt = Math.min(S.endsAt, new Date(S.exam.closes_at).getTime());
       persist(); screenExam();
     };
@@ -196,54 +218,88 @@ ul.rules{margin:8px 0 0;padding-inline-start:20px}ul.rules li{margin-bottom:4px}
   function screenExam() {
     app.innerHTML = '<div class="bar"><div class="in"><span class="timer" id="tm">' + ic('clock') + ' <span id="tmv">--:--</span></span>' +
       '<div class="prog"><div class="t" id="pt"></div><div class="track"><i id="pb"></i></div></div>' +
-      '<button class="btn gold" id="fin">' + ic('send') + ' تسليم</button></div></div>' +
+      (locked() ? '' : '<button class="btn gold" id="fin">' + ic('send') + ' تسليم</button>') + '</div><div id="warn"></div></div>' +
       '<div class="wrap"><div class="card" id="qcard"></div><div class="card"><h2>الأسئلة</h2><div class="grid" id="grid"></div></div></div>';
-    document.getElementById('fin').onclick = confirmSubmit;
-    drawQ(); tick(); clearInterval(S.timer); S.timer = setInterval(tick, 1000);
+    var fin = document.getElementById('fin'); if (fin) fin.onclick = confirmSubmit;
+    if (S.exam.noCopy) document.body.classList.add('nocopy');
+    drawWarn(); drawQ(); tick(); clearInterval(S.timer); S.timer = setInterval(tick, 1000);
   }
   function tick() {
     var left = (S.endsAt - Date.now()) / 1000, el = document.getElementById('tmv');
     if (!el) return;
     el.textContent = fmt(left);
     document.getElementById('tm').className = 'timer' + (left < 300 ? ' warn' : '');
-    if (left <= 0) { clearInterval(S.timer); doSubmit(true); }
+    if (left <= 0) { clearInterval(S.timer); doSubmit(true, 'time'); return; }
+    var P = S.exam.perQuestionSec;
+    if (P > 0 && S.qEnd) {
+      var n = S.order.length, moved = false;
+      while (S.qEnd && Date.now() >= S.qEnd) {
+        if (S.answers[S.order[S.cur]] === undefined) S.timedOut++;
+        if (S.cur < n - 1) { S.cur++; S.qEnd += P * 1000; moved = true; }
+        else { persist(); clearInterval(S.timer); doSubmit(true, 'perq'); return; }
+      }
+      if (moved) { persist(); drawQ(); scrollTo(0, 0); }
+      var ql = Math.max(0, (S.qEnd - Date.now()) / 1000), qt = document.getElementById('qt');
+      if (qt) { qt.className = 'qtimer' + (ql <= 10 ? ' warn' : ''); document.getElementById('qtv').textContent = fmt(ql); document.getElementById('qtb').style.width = Math.round(ql / P * 100) + '%'; }
+    }
+  }
+  function drawWarn() {
+    var w = document.getElementById('warn'); if (!w) return;
+    w.innerHTML = S.blur > 0 && S.exam.trackFocus ? '<div class="warnbar">رُصد خروجك من صفحة الاختبار ' + S.blur + ' مرة' +
+      (S.exam.maxBlur > 0 ? ' — الحد المسموح ' + S.exam.maxBlur + '، وبعده يُسلَّم الاختبار تلقائيًا' : '') + '.</div>' : '';
+  }
+  function goNext() {
+    var n = S.order.length, id = S.order[S.cur];
+    if (S.exam.requireAnswer && S.answers[id] === undefined) return;
+    if (S.cur < n - 1) { S.cur++; if (S.exam.perQuestionSec > 0) S.qEnd = Date.now() + S.exam.perQuestionSec * 1000; persist(); drawQ(); scrollTo(0, 0); }
+    else confirmSubmit();
   }
   function drawQ() {
     var id = S.order[S.cur], q = qById(id), n = S.order.length, a = answered();
     document.getElementById('pt').textContent = 'أجبت عن ' + a + ' من ' + n;
     document.getElementById('pb').style.width = Math.round(a / n * 100) + '%';
-    var h = '<div class="qno">السؤال ' + (S.cur + 1) + ' من ' + n + '</div><p class="qtext">' + esc(q.text) + '</p>';
+    var P = S.exam.perQuestionSec, need = S.exam.requireAnswer && S.answers[id] === undefined;
+    var h = (P > 0 ? '<div class="qtimer" id="qt">' + ic('clock') + ' <span id="qtv">' + fmt(Math.max(0, (S.qEnd - Date.now()) / 1000)) + '</span><div class="tr"><i id="qtb" style="width:' + Math.round(Math.max(0, (S.qEnd - Date.now()) / 1000) / P * 100) + '%"></i></div></div>' : '') +
+      '<div class="qno">السؤال ' + (S.cur + 1) + ' من ' + n + '</div><p class="qtext">' + esc(q.text) + '</p>';
     S.optOrder[id].forEach(function (oi, k) {
       var on = S.answers[id] === oi;
       h += '<button class="opt' + (on ? ' on' : '') + '" data-o="' + oi + '" aria-pressed="' + on + '"><span class="l">' + (LET[k] || k + 1) + '</span><span>' + esc(q.options[oi]) + '</span></button>';
     });
-    h += '<div class="nav"><button class="btn ghost" id="prev"' + (S.cur === 0 ? ' disabled' : '') + '>السابق</button>' +
-      (S.cur < n - 1 ? '<button class="btn" id="next">التالي</button>' : '<button class="btn gold" id="next">مراجعة وتسليم</button>') + '</div>';
+    h += '<div class="nav">' + (locked() ? '<span></span>' : '<button class="btn ghost" id="prev"' + (S.cur === 0 ? ' disabled' : '') + '>السابق</button>') +
+      (S.cur < n - 1 ? '<button class="btn" id="next"' + (need ? ' disabled' : '') + '>التالي</button>' : '<button class="btn gold" id="next"' + (need ? ' disabled' : '') + '>تسليم الاختبار</button>') + '</div>' +
+      (need ? '<div class="need">اختر إجابة للمتابعة.</div>' : '');
     var c = document.getElementById('qcard'); c.innerHTML = h;
     c.querySelectorAll('.opt').forEach(function (b) {
       b.onclick = function () { S.answers[id] = +b.getAttribute('data-o'); persist(); drawQ(); };
     });
-    document.getElementById('prev').onclick = function () { if (S.cur > 0) { S.cur--; persist(); drawQ(); scrollTo(0, 0); } };
-    document.getElementById('next').onclick = function () { if (S.cur < n - 1) { S.cur++; persist(); drawQ(); scrollTo(0, 0); } else confirmSubmit(); };
-    var g = ''; S.order.forEach(function (qid, i) { g += '<button class="' + (S.answers[qid] !== undefined ? 'a' : '') + (i === S.cur ? ' cur' : '') + '" data-i="' + i + '" aria-label="السؤال ' + (i + 1) + '">' + (i + 1) + '</button>'; });
+    var pv = document.getElementById('prev'); if (pv) pv.onclick = function () { if (S.cur > 0 && !locked()) { S.cur--; persist(); drawQ(); scrollTo(0, 0); } };
+    document.getElementById('next').onclick = goNext;
+    var g = ''; S.order.forEach(function (qid, i) { g += '<button class="' + (S.answers[qid] !== undefined ? 'a' : '') + (i === S.cur ? ' cur' : '') + '" data-i="' + i + '" aria-label="السؤال ' + (i + 1) + '"' + (locked() ? ' disabled' : '') + '>' + (i + 1) + '</button>'; });
     var gr = document.getElementById('grid'); gr.innerHTML = g;
-    gr.querySelectorAll('button').forEach(function (b) { b.onclick = function () { S.cur = +b.getAttribute('data-i'); persist(); drawQ(); scrollTo(0, 0); }; });
+    if (!locked()) gr.querySelectorAll('button').forEach(function (b) { b.onclick = function () { S.cur = +b.getAttribute('data-i'); persist(); drawQ(); scrollTo(0, 0); }; });
   }
   function confirmSubmit() {
     var left = S.order.length - answered();
+    if (S.exam.requireAnswer && left > 0) {
+      var first = -1; S.order.forEach(function (q, i) { if (first < 0 && S.answers[q] === undefined) first = i; });
+      alert('الإجابة إلزامية: بقي ' + left + ' سؤالًا دون إجابة.' + (locked() ? '' : ' سننقلك إلى أول سؤال لم تُجب عنه.'));
+      if (!locked() && first >= 0) { S.cur = first; persist(); drawQ(); scrollTo(0, 0); }
+      return;
+    }
     if (!confirm(left ? 'لم تُجب عن ' + left + ' سؤالًا. هل تريد التسليم الآن؟' : 'تسليم الاختبار الآن؟ لن تستطيع تعديل إجاباتك بعد التسليم.')) return;
     doSubmit(false);
   }
 
   /* ---------------- التسليم ---------------- */
-  function doSubmit(auto) {
-    if (S.submitting) return; S.submitting = true; clearInterval(S.timer);
+  function doSubmit(auto, reason) {
+    if (S.submitting) return; S.submitting = true; clearInterval(S.timer); S.reason = reason || (auto ? 'time' : '');
+    document.body.classList.remove('nocopy');
     app.innerHTML = '<div class="wrap"><div class="card center"><div class="spin"></div><h2>جارٍ إرسال إجاباتك وتصحيحها…</h2>' +
-      (auto ? '<p class="note">انتهى الوقت، فسُلّم الاختبار تلقائيًا بما أجبت عنه.</p>' : '') + '</div></div>';
+      (auto ? '<p class="note">' + (reason === 'blur' ? 'تجاوزت الحد المسموح للخروج من صفحة الاختبار، فسُلّم تلقائيًا بما أجبت عنه.' : 'انتهى الوقت، فسُلّم الاختبار تلقائيًا بما أجبت عنه.') + '</p>' : '') + '</div></div>';
     var ans = {}; Object.keys(S.answers).forEach(function (k) { ans[k] = S.answers[k]; });
-    sb.rpc('exam_submit', { p_code: S.code, p_uid: S.uid, p_name: S.name || '', p_answers: ans, p_started: S.startedAt, p_auto: !!auto }).then(function (r) {
+    sb.rpc('exam_submit', { p_code: S.code, p_uid: S.uid, p_name: S.name || '', p_answers: ans, p_started: S.startedAt, p_auto: !!auto, p_meta: { blur: S.blur, reason: S.reason, timedOut: S.timedOut } }).then(function (r) {
       S.submitting = false;
-      if (r.error || !r.data) { screenRetry('تعذر إرسال إجاباتك بسبب الاتصال. إجاباتك محفوظة على جهازك — اضغط «إعادة الإرسال».', auto); return; }
+      if (r.error || !r.data) { screenRetry('تعذر إرسال إجاباتك بسبب الاتصال. إجاباتك محفوظة على جهازك — اضغط «إعادة الإرسال».', auto, false, reason); return; }
       if (!r.data.ok) {
         if (r.data.submitted) { try { localStorage.removeItem(key()); } catch (e) {} }
         screenRetry(r.data.error || 'تعذر التسليم.', auto, r.data.submitted); return;
@@ -252,10 +308,10 @@ ul.rules{margin:8px 0 0;padding-inline-start:20px}ul.rules li{margin-bottom:4px}
       S.result = r.data; screenResult();
     });
   }
-  function screenRetry(msg, auto, final) {
+  function screenRetry(msg, auto, final, reason) {
     app.innerHTML = '<div class="wrap"><div class="card"><h2>' + (final ? 'تم التسليم مسبقًا' : 'لم يكتمل الإرسال') + '</h2><div class="err">' + esc(msg) + '</div>' +
       (final ? '' : '<button class="btn wide" id="retry">' + ic('send') + ' إعادة الإرسال</button>') + '</div></div>';
-    var b = document.getElementById('retry'); if (b) b.onclick = function () { doSubmit(auto); };
+    var b = document.getElementById('retry'); if (b) b.onclick = function () { doSubmit(auto, reason); };
   }
 
   /* ---------------- النتيجة ---------------- */
@@ -266,6 +322,7 @@ ul.rules{margin:8px 0 0;padding-inline-start:20px}ul.rules li{margin-bottom:4px}
     tab = tab || 'sum';
     var h = '<div class="wrap">';
     h += '<div class="sent noprint">' + ic('check') + ' استُلمت إجاباتك ووصلت نتيجتك إلى الدكتور.</div>';
+    if (S.reason === 'blur') h += '<div class="err" style="margin:0 0 14px">سُلّم الاختبار تلقائيًا لتجاوز الحد المسموح للخروج من صفحته.</div>';
     h += '<div class="hero"><div>' + esc(S.exam.title) + '</div><div style="opacity:.85;font-size:14px">' + esc(R.student.name) + ' · ' + esc(R.student.uid) + '</div>';
     if (R.score != null) h += '<div class="sc">' + R.score + '%</div><span class="dec ' + decCls(R.decision) + '">' + esc(R.decision) + '</span>' +
       '<div class="sub">إجابات صحيحة: ' + R.correct + ' من ' + R.total + ' · حد الجاهزية ' + t.ready + '%</div>';
@@ -312,6 +369,19 @@ ul.rules{margin:8px 0 0;padding-inline-start:20px}ul.rules li{margin-bottom:4px}
     app.querySelectorAll('.tabs button').forEach(function (b) { b.onclick = function () { screenResult(b.getAttribute('data-t')); scrollTo(0, 0); }; });
   }
 
+  document.addEventListener('visibilitychange', function () {
+    if (!S.exam || !S.exam.trackFocus || !active()) return;
+    if (document.hidden) {
+      S.blur++; persist();
+      if (S.exam.maxBlur > 0 && S.blur > S.exam.maxBlur) doSubmit(true, 'blur');
+    } else drawWarn();
+  });
+  ['copy', 'cut', 'contextmenu', 'selectstart', 'dragstart'].forEach(function (ev) {
+    document.addEventListener(ev, function (e) { if (S.exam && S.exam.noCopy && active()) e.preventDefault(); });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (S.exam && S.exam.noCopy && active() && (e.ctrlKey || e.metaKey) && /^[cxpsau]$/i.test(e.key)) e.preventDefault();
+  });
   window.addEventListener('beforeunload', function (e) { if (S.timer && !S.result) { e.preventDefault(); e.returnValue = ''; } });
   screenLogin();
 })();
