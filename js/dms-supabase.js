@@ -109,6 +109,7 @@
     if (!DB.committees.length) DB.committees = JSON.parse(JSON.stringify(DEFAULT_COMMITTEES));
     normalize(DB); ensureV21();
     if (!admin) BASE = snapBase();
+    await loadDeptSettings(admin);
     if (ME) ME = user(ME.id) || null;
     setConn('ok');
     return me;
@@ -196,17 +197,17 @@
     return ok;
   }
 
-  async function pushSimpleAdmin(key, table, list, toR, pk, sigFn) {
+  async function pushSimpleAdmin(key, table, list, toR, pk, sigFn, phase) {
     if (!isAdmin()) return true;
     const base = BASE[key]; let ok = true;
     const cur = new Map(list.map((x) => [x[pk || 'id'], x]));
-    for (const [id, x] of cur) {
+    if (phase !== 'del') for (const [id, x] of cur) {
       const row = toR(x), j = sigFn ? sigFn(x) : key === 'departments' ? JSON.stringify(row) : J(x);
       if (base.get(id) === j) continue;
       const { error } = await sb.from(table).upsert([row]);
       if (!error) base.set(id, j); else if (isNetErr(error)) { ok = false; LAST_ERR = error.message; } else { denied(error); base.set(id, j); }
     }
-    for (const id of [...base.keys()]) if (!cur.has(id)) {
+    if (phase !== 'up') for (const id of [...base.keys()]) if (!cur.has(id)) {
       const { error } = await sb.from(table).delete().eq(pk === 'app_key' ? 'app_key' : 'id', id);
       if (!error) base.delete(id); else if (isNetErr(error)) ok = false; else { denied(error); base.delete(id); }
     }
@@ -258,18 +259,20 @@
     if (pushing) { pushAgain = true; return true; }
     pushing = true; setConn('busy'); let ok = true;
     try {
-      ok = (await pushSimpleAdmin('departments', 'departments', DB.departments || [], depRow)) && ok;
+      ok = (await pushSimpleAdmin('departments', 'departments', DB.departments || [], depRow, null, null, 'up')) && ok;
       ok = (await pushCommittees('up')) && ok;
       ok = (await pushUsers()) && ok;
       if (isAdmin()) {
         const sj = J(DB.settings);
         if (BASE.settings !== sj) { const { error } = await sb.from('settings').upsert([{ id: 1, data: clean(DB.settings) }]); if (!error) BASE.settings = sj; else ok = false; }
       }
+      ok = (await pushDeptSettings()) && ok;
       ok = (await pushSimpleAdmin('customApps', 'custom_apps', DB.customApps || [], (x) => ({ id: x.id, data: clean(x) }))) && ok;
       ok = (await pushAppVersions()) && ok;
       for (const C of ['goals', 'templates', 'tasks', 'kpis', 'visits', 'clo', 'files', 'initiatives', 'events', 'collegeEvents', 'notifs', 'log'])
         ok = (await pushColl(C)) && ok;
       ok = (await pushCommittees('del')) && ok;   // حذف اللجان بعد حذف قوالبها ومراجعها
+      ok = (await pushSimpleAdmin('departments', 'departments', DB.departments || [], depRow, null, null, 'del')) && ok;   // ثم الأقسام بعد لجانها
     } catch (e) { ok = false; LAST_ERR = e.message || String(e); console.error(e); }
     pushing = false;
     setConn(ok ? 'ok' : 'err');
@@ -284,7 +287,7 @@
   }
 
   /* ---------- التحديث الفوري ---------- */
-  const RT_TABLES = [...Object.values(T), 'committees', 'departments', 'profiles', 'memberships', 'settings', 'app_versions', 'custom_apps', 'app_storage'];
+  const RT_TABLES = [...Object.values(T), 'committees', 'departments', 'profiles', 'memberships', 'settings', 'app_versions', 'custom_apps', 'app_storage', 'dept_settings'];
   function startRealtime() {
     if (RT) return;
     RT = sb.channel('dms-all');
@@ -325,11 +328,14 @@
     } else if (t === 'profiles' || t === 'memberships') {
       clearTimeout(usersTimer); usersTimer = setTimeout(() => reloadUsers().then(scheduleRefresh), 400); return;
     } else if (t === 'app_storage') { onRemoteAppStorage(p); return; }
+    else if (t === 'dept_settings') {
+      if (ev !== 'DELETE' && n.dept_id && DB.deptSettings) { DB.deptSettings[n.dept_id] = Object.assign({ faculty: [], programs: [], courses: [] }, n.data || {}); if (BASE.deptSettings) BASE.deptSettings.set(n.dept_id, JSON.stringify(DB.deptSettings[n.dept_id])); composeDeptSettings(); }
+    }
     scheduleRefresh();
   }
   function scheduleRefresh() {
     clearTimeout(refreshTimer);
-    refreshTimer = setTimeout(() => { if (!ME) return; try { updateBell(); if (VIEW.page !== 'settings') softRefresh(); } catch (e) { console.error(e); } }, 350);
+    refreshTimer = setTimeout(() => { if (!ME) return; try { updateBell(); if (VIEW.page !== 'settings' && VIEW.page !== 'deptset') softRefresh(); } catch (e) { console.error(e); } }, 350);
     /* صفحات الإعدادات لا تُعاد رسمها تلقائيًا حتى لا تضيع معاينة الاستيراد أو سجل الاستعادة أو نموذج قيد التعبئة */
   }
   async function resync() {
@@ -558,16 +564,35 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
   appHtmlBlob = async function (a) { return new Blob([await _rawAppText(a)], { type: 'text/html;charset=utf-8' }); };
   const _openTool = openTool;
   openTool = async function (a) {
+    const meta = ((DB.settings.appMeta || {})[a]) || {};
+    if (meta.disabled) { toast('هذا النظام معطّل من «الأنظمة والتحديثات».'); go('home'); return; }
     const sc = appScope(a);
     if (FRAMES[a] && FRAMES[a].dataset.scope !== sc) { FRAMES[a].remove(); delete FRAMES[a]; }
     await _openTool(a);
     if (FRAMES[a]) FRAMES[a].dataset.scope = sc;
     const bar = $('#toolBar');
-    if (bar && !document.getElementById('appScopeLbl')) {
-      const lbl = document.createElement('span'); lbl.id = 'appScopeLbl'; lbl.className = 'pill st-prog';
-      lbl.textContent = 'بيانات: ' + (sc === 'college' ? 'مستوى الكلية' : deptName(sc)); bar.insertBefore(lbl, bar.children[1] || null);
+    /* اسم اللجنة في شريط النظام يطابق القسم الذي تُعرض بياناته */
+    try {
+      const c0 = comm(allApps()[a].committee);
+      const alt = (c0 && c0.dept && sc !== 'college' && c0.dept !== sc) ? DB.committees.find((x) => (x.type || x.id) === (c0.type || c0.id) && x.dept === sc) : null;
+      if (bar && alt) { const w = document.createTreeWalker(bar, NodeFilter.SHOW_TEXT); let n; while ((n = w.nextNode())) if (n.nodeValue.includes(c0.name)) n.nodeValue = n.nodeValue.split(c0.name).join(alt.name); }
+    } catch (e) {}
+    if (bar) { const o1 = document.getElementById('appScopeLbl'); if (o1) o1.remove(); const o2 = document.getElementById('appImpBtn'); if (o2) o2.remove(); }
+    if (bar) {
+      const free = sc !== 'college' && (!SCOPE || ['owner', 'head', 'college'].includes(SCOPE)) && (isAdmin() || (ME && ME.collegeRole)) && (DB.departments || []).length > 1;
+      let lbl;
+      if (free) {
+        /* المالك والعميد والوكلاء يختارون القسم الذي يفتحون بياناته */
+        lbl = document.createElement('label'); lbl.id = 'appScopeLbl'; lbl.className = 'pill st-prog'; lbl.style.cssText = 'display:inline-flex;gap:6px;align-items:center';
+        lbl.innerHTML = 'بيانات: <select style="padding:2px 6px;font:inherit;border-radius:6px">' + DB.departments.map((d) => `<option value="${esc(d.id)}"${d.id === sc ? ' selected' : ''}>${esc(d.name)}</option>`).join('') + '</select>';
+        lbl.querySelector('select').onchange = (e) => { SEL_DEPT = e.target.value; if (FRAMES[a]) { FRAMES[a].remove(); delete FRAMES[a]; } go('tool', { app: a }); };
+      } else {
+        lbl = document.createElement('span'); lbl.id = 'appScopeLbl'; lbl.className = 'pill st-prog';
+        lbl.textContent = 'بيانات: ' + (sc === 'college' ? 'مستوى الكلية' : deptName(sc));
+      }
+      bar.insertBefore(lbl, bar.children[1] || null);
       if (isAdmin() || isChair(allApps()[a].committee)) {
-        const b = document.createElement('label'); b.className = 'btn sm'; b.textContent = 'استيراد بيانات من النسخة السابقة';
+        const b = document.createElement('label'); b.id = 'appImpBtn'; b.className = 'btn sm'; b.textContent = 'استيراد بيانات من النسخة السابقة';
         b.innerHTML += `<input type="file" accept=".json" class="hidden" onchange="dmsImportAppData('${a}',this.files[0])">`; bar.appendChild(b);
       }
     }
@@ -625,7 +650,7 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
   /* ---------- النسخة الاحتياطية الشاملة لقاعدة البيانات ---------- */
   const BACKUP_TABLES = ['settings', 'departments', 'committees', 'profiles', 'memberships', 'app_versions', 'custom_apps',
     'tasks', 'kpis', 'visits', 'clo', 'files', 'templates', 'initiatives', 'events', 'goals', 'college_events', 'notifs',
-    'activity_log', 'app_storage', 'online_exams', 'online_submissions'];
+    'activity_log', 'app_storage', 'online_exams', 'online_submissions', 'dept_settings'];
   function daysSince(iso) { return iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86400000) : null; }
   window.dmsFullBackup = async function (btn) {
     if (!isAdmin()) { alert('النسخة الشاملة من صلاحية المالك.'); return; }
@@ -671,10 +696,10 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
       <p class="small muted" id="fbStatus" style="margin-top:8px"></p></div></div>`;
   }
   /* ---------- الاستعادة من النسخة الشاملة ---------- */
-  const PK = { memberships: 'user_app_id,committee_id', app_storage: 'app_key,scope,key', app_versions: 'app_key', settings: 'id' };
+  const PK = { memberships: 'user_app_id,committee_id', app_storage: 'app_key,scope,key', app_versions: 'app_key', settings: 'id', dept_settings: 'dept_id' };
   const GEN_COLS = { tasks: ['title', 'status', 'assignee', 'start_date', 'end_date', 'term'] };
   const RGROUPS = [
-    { k: 'org', label: 'الأقسام واللجان والإعدادات وإصدارات الأنظمة', tables: ['departments', 'committees', 'settings', 'app_versions', 'custom_apps'] },
+    { k: 'org', label: 'الأقسام واللجان والإعدادات وإصدارات الأنظمة ومقررات الأقسام', tables: ['departments', 'committees', 'settings', 'dept_settings', 'app_versions', 'custom_apps'] },
     { k: 'users', label: 'المستخدمون وعضوياتهم', hint: 'يُنشأ المستخدم المفقود بكلمة مرور مؤقتة جديدة، وتُنزَّل لك قائمة بها', tables: ['profiles', 'memberships'] },
     { k: 'work', label: 'أعمال اللجان: المهام والمؤشرات والزيارات والقياس والمبادرات والقوالب والتقويم والخطط والمرفقات', tables: ['tasks', 'kpis', 'visits', 'clo', 'initiatives', 'templates', 'events', 'goals', 'college_events', 'files'] },
     { k: 'apps', label: 'بيانات الأنظمة الأربعة (التدريب، الجاهزية، الاختبارات، الاستطلاعات)', tables: ['app_storage'] },
@@ -699,7 +724,7 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
       ...(b.tables.profiles || []).filter((p) => p.head_dept === d).map((p) => p.app_id)]);
     return function (t, r) {
       switch (t) {
-        case 'departments': return r.id === d;
+        case 'departments': case 'dept_settings': return (r.id || r.dept_id) === d;
         case 'committees': return r.dept_id === d;
         case 'goals': return r.dept_id === d;
         case 'app_storage': case 'online_exams': case 'online_submissions': return r.scope === d;
@@ -948,7 +973,7 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
       ['المستخدمون', [IMP_HEAD,
         ['د. أحمد محمد', 'ahmad.m', '', 'أستاذ مشارك', DB.committees.filter((c) => c.level !== 'college')[0] ? DB.committees.filter((c) => c.level !== 'college')[0].name : '', 'عضو', '', ''],
         ['د. أحمد محمد', 'ahmad.m', '', '', DB.committees.filter((c) => c.level === 'college')[0] ? DB.committees.filter((c) => c.level === 'college')[0].name : '', 'رئيس اللجنة', '', '']]],
-      ['اللجان المتاحة', [['اسم اللجنة (انسخه كما هو)', 'القسم']].concat(DB.committees.map((c) => [c.name, c.dept ? deptName(c.dept) : 'مستوى الكلية']))],
+      ['اللجان المتاحة', [['اسم اللجنة (انسخه كما هو)', 'القسم']].concat(DB.committees.filter((c) => isAdmin() || canManageDeptLocal(c.dept)).map((c) => [c.name, c.dept ? deptName(c.dept) : 'مستوى الكلية']))],
       ['الأقسام', [['اسم القسم (لعمود رئاسة قسم)']].concat((DB.departments || []).map((d) => [d.name]))],
       ['تعليمات', [['التعليمات'],
         ['سطر لكل عضوية: إن كان المستخدم عضوًا في أكثر من لجنة فكرر اسمه واسم المستخدم في سطر لكل لجنة.'],
@@ -992,6 +1017,12 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
     });
     const list = [...users.values()];
     list.forEach((u) => {
+      if (!isAdmin()) {   /* رئيس القسم: لجان قسمه فقط، ودور «عضو» أو «مطّلع» */
+        const mine = new Set(DB.committees.filter((c) => canManageDeptLocal(c.dept)).map((c) => c.id));
+        Object.entries(u.mems).forEach(([c, r]) => { if (!mine.has(c)) u.errors.push('«' + commName(c) + '» ليست من لجان قسمك'); else if (r === 'chair') u.errors.push('تعيين رئيس لجنة من صلاحية المالك'); });
+        if (u.headDept || u.collegeRole) u.errors.push('رئاسة الأقسام وأدوار الكلية من صلاحية المالك');
+        if (!Object.keys(u.mems).length) u.errors.push('حدّد لجنة من لجان قسمك');
+      }
       if (!u.name) u.errors.push('الاسم مطلوب');
       if (!/^[a-z0-9._-]{3,}$/.test(u.username)) u.errors.push('اسم المستخدم بالإنجليزية والأرقام، 3 أحرف على الأقل');
       if (u.password && u.password.length < 8) u.errors.push('كلمة المرور 8 أحرف على الأقل');
@@ -1008,7 +1039,7 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
       <div id="impLog" class="rs-log"></div>`;
   };
   window.dmsImportRun = async function () {
-    if (!isAdmin() || !IMP) return;
+    if (!IMP || !(isAdmin() || myDepts().length)) return;
     const list = IMP.filter((u) => !u.errors.length);
     if (!confirm('استيراد ' + list.length + ' مستخدمًا؟')) return;
     const btn = document.getElementById('impGo'); btn.disabled = true;
@@ -1067,6 +1098,322 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + html], { type: 'application/msword' }));
     a.download = r.title.replace(/[\\/:*?"<>|]/g, '_') + '.doc'; document.body.appendChild(a); a.click(); setTimeout(() => a.remove(), 1000);
     audit('تصدير Word', r.title, ''); save();
+  };
+
+  /* ================= إدارة الأنظمة: تعطيل، إعادة تسمية، حذف ================= */
+  const appMeta = (k) => ((DB.settings.appMeta || {})[k]) || {};
+  const setMeta = (k, patch) => { DB.settings.appMeta = DB.settings.appMeta || {}; DB.settings.appMeta[k] = Object.assign({}, DB.settings.appMeta[k] || {}, patch); };
+  const multiDept = () => (DB.departments || []).length > 1;
+  { const _aa = allApps; allApps = function () {
+      const o = _aa();
+      Object.keys(o).forEach((k) => { const m = appMeta(k);
+        if (m.name) o[k].name = m.name; else if (k === 'readiness' && multiDept()) o[k].name = 'نظام جاهزية الطلاب';
+        if (m.desc) o[k].desc = m.desc; o[k].disabled = !!m.disabled; });
+      return o; }; }
+  { const _sy = systems; systems = function () {
+      return _sy().filter((x) => !appMeta(x.k).disabled).map((x) => { const m = appMeta(x.k);
+        if (m.name) x.name = m.name; else if (x.k === 'readiness' && multiDept()) x.name = 'نظام جاهزية الطلاب';
+        if (m.desc) x.desc = m.desc; return x; }); }; }
+  window.dmsSysToggle = function (k) {
+    const m = appMeta(k), nm = (allApps()[k] || MODULE_DEF[k] || {}).name || k;
+    if (!m.disabled && !confirm('تعطيل «' + nm + '»؟\n\nيختفي من صفحة الدخول ومن اللجان والقوائم لكل المستخدمين، وتبقى بياناته محفوظة. تستطيع تفعيله لاحقًا من هذه الصفحة.')) return;
+    setMeta(k, { disabled: !m.disabled }); if (FRAMES[k]) { FRAMES[k].remove(); delete FRAMES[k]; }
+    audit(m.disabled ? 'تفعيل نظام' : 'تعطيل نظام', nm, ''); save(); refresh(); toast(m.disabled ? 'فُعّل النظام' : 'عُطّل النظام');
+  };
+  window.dmsSysRename = function (k) {
+    const A = allApps()[k] || MODULE_DEF[k] || {}, m = appMeta(k);
+    modal('اسم النظام ووصفه', `<div class="formgrid"><label class="f full">اسم النظام<input id="smN" value="${esc(m.name || '')}" placeholder="${esc(A.name || '')}"></label>
+      <label class="f full">الوصف<input id="smD" value="${esc(m.desc || '')}" placeholder="${esc(A.desc || '')}"></label>
+      <p class="small muted full">اترك الخانة فارغة لاستخدام الاسم الأصلي.</p></div>`,
+      `<button class="btn primary" onclick="dmsSysRenameSave('${k}')">حفظ</button><button class="btn" onclick="closeModal()">إلغاء</button>`);
+  };
+  window.dmsSysRenameSave = function (k) { setMeta(k, { name: val('smN'), desc: val('smD') }); audit('تعديل اسم نظام', val('smN') || k, ''); save(); closeModal(); refresh(); };
+  window.dmsSysDataDlg = async function (k) {
+    const A = allApps()[k] || {}, custom = !!A.custom;
+    const { data, error } = await sb.from('app_storage').select('scope,key').eq('app_key', k);
+    if (error) { alert(error.message); return; }
+    const per = {}; (data || []).forEach((r) => { per[r.scope] = (per[r.scope] || 0) + 1; });
+    const scopes = Object.keys(per);
+    const lbl = (sc) => sc === 'college' ? 'مستوى الكلية' : deptName(sc);
+    modal(custom ? 'حذف النظام وبياناته' : 'حذف بيانات النظام', `<p>${custom ? 'سيُحذف «' + esc(A.name) + '» من الموقع نهائيًا مع إصداراته وبياناته المختارة أدناه.'
+        : '«' + esc(A.name) + '» نظام أساسي في الموقع: يمكنك <b>حذف بياناته</b> لقسم معين أو للكل، أو <b>تعطيله</b> ليختفي من الموقع مع بقاء بياناته.'}</p>
+      ${scopes.length ? `<label class="f">البيانات المراد حذفها<select id="sdS"><option value="*">كل الأقسام (${data.length} عنصرًا)</option>${scopes.map((sc) => `<option value="${esc(sc)}">${esc(lbl(sc))} فقط (${per[sc]} عنصرًا)</option>`).join('')}</select></label>`
+        : '<p class="small muted">لا توجد بيانات محفوظة لهذا النظام.</p>'}
+      <p class="small bad" style="margin-top:12px"><b>لا يمكن التراجع عن الحذف.</b> نزّل نسخة شاملة أولًا لتستطيع الاستعادة إن احتجت.</p>
+      <label class="f">للتأكيد اكتب كلمة «حذف»<input id="sdC" autocomplete="off"></label>`,
+      `<button class="btn" onclick="dmsFullBackup(this)">تنزيل نسخة شاملة أولًا</button><span class="sp" style="flex:1"></span>
+       <button class="btn danger" onclick="dmsSysDataRun('${k}')">${custom ? 'حذف النظام' : 'حذف البيانات'}</button><button class="btn" onclick="closeModal()">إلغاء</button>`);
+  };
+  window.dmsSysDataRun = async function (k) {
+    if ((val('sdC') || '').trim() !== 'حذف') { alert('اكتب كلمة «حذف» للتأكيد.'); return; }
+    const A = allApps()[k] || {}, sel = document.getElementById('sdS'), sc = sel ? sel.value : '*';
+    let q = sb.from('app_storage').select('scope,key').eq('app_key', k); if (sc !== '*') q = q.eq('scope', sc);
+    const { data } = await q; let n = 0, fail = 0;
+    for (const r of (data || [])) { const { error } = await sb.rpc('app_storage_del', { p_app: k, p_scope: r.scope, p_key: r.key }); if (error) fail++; else n++; }
+    Object.keys(localStorage).filter((x) => x.startsWith('dmsapp:' + k + '|' + (sc === '*' ? '' : sc))).forEach((x) => localStorage.removeItem(x));
+    if (FRAMES[k]) { FRAMES[k].remove(); delete FRAMES[k]; }
+    if (A.custom) { DB.customApps = DB.customApps.filter((x) => x.id !== k); delete DB.appVersions[k]; if (DB.settings.appMeta) delete DB.settings.appMeta[k]; }
+    audit(A.custom ? 'حذف نظام' : 'حذف بيانات نظام', A.name || k, (sc === '*' ? 'كل الأقسام' : (sc === 'college' ? 'مستوى الكلية' : deptName(sc))) + ' · ' + n + ' عنصر');
+    save(); closeModal(); refresh();
+    toast((A.custom ? 'حُذف النظام' : 'حُذفت البيانات') + ' (' + n + ' عنصر' + (fail ? '، تعذّر ' + fail : '') + ')');
+  };
+  { const _ss = setSystems; setSystems = function () {
+      let h = _ss();
+      /* أزرار الإدارة في ترويسة كل نظام */
+      Object.entries(allApps()).forEach(([k, x]) => {
+        const m = appMeta(k);
+        const btns = `${m.disabled ? '<span class="pill st-late">معطّل</span>' : ''}<button class="btn sm" onclick="dmsSysRename('${k}')">الاسم</button><button class="btn sm" onclick="dmsSysToggle('${k}')">${m.disabled ? 'تفعيل' : 'تعطيل'}</button><button class="btn sm danger" onclick="dmsSysDataDlg('${k}')">${x.custom ? 'حذف النظام' : 'حذف البيانات'}</button>`;
+        h = h.replace(`<button class="btn sm primary" onclick="uploadVersionDlg('${k}')">رفع تحديث</button>`, btns + `<button class="btn sm primary" onclick="uploadVersionDlg('${k}')">رفع تحديث</button>`);
+      });
+      const mods = Object.entries(MODULE_DEF).map(([k, d]) => { const m = appMeta(k);
+        return `<tr><td><b>${esc(m.name || d.name)}</b><div class="small muted">${esc(m.desc || d.desc || '')}</div></td><td>${m.disabled ? '<span class="pill st-late">معطّل</span>' : '<span class="pill st-done">مفعّل</span>'}</td>
+          <td style="white-space:nowrap"><button class="btn sm" onclick="dmsSysRename('${k}')">الاسم</button> <button class="btn sm" onclick="dmsSysToggle('${k}')">${m.disabled ? 'تفعيل' : 'تعطيل'}</button></td></tr>`; }).join('');
+      h += `<div class="panel"><h3>وحدات الموقع المدمجة</h3><div class="body"><div class="tbl-wrap"><table class="t"><tr><th>الوحدة</th><th>الحالة</th><th></th></tr>${mods}</table></div></div></div>
+        <div class="panel"><h3>كيف تعمل الأنظمة مع تعدد الأقسام</h3><div class="body small">
+          <p>• الأنظمة المرتبطة بلجنة على <b>مستوى القسم</b> (الجاهزية والاستطلاعات) لها <b>بيانات مستقلة لكل قسم</b>: اختبارات الجاهزية وطلاب قسم المحاسبة منفصلة تمامًا عن قسم إدارة الأعمال، وكذلك الاختبارات الإلكترونية ونتائجها. والقسم الجديد يبدأ نظامه فارغًا باسمه.</p>
+          <p>• الأنظمة المرتبطة بلجنة على <b>مستوى الكلية</b> (التدريب والاختبارات) <b>مشتركة</b> بين الأقسام لأنها وحدة واحدة للكلية. إن أردت أن يكون لكل قسم نظامه المستقل فاجعل لجنتها على مستوى القسم من تبويب «اللجان».</p>
+          <p>• عند فتح أي نظام من «الإعدادات العامة» أو «لوحة الكلية» تختار القسم الذي تريد بياناته من القائمة في شريط النظام.</p>
+          <p>• <b>التعطيل</b> يخفي النظام من كل مكان ويبقي بياناته، و<b>حذف البيانات</b> نهائي (خذ نسخة شاملة قبله).</p></div></div>`;
+      return h; }; }
+
+  /* ================= إعدادات كل قسم (جدول dept_settings) ================= */
+  /* لكل قسم دكاترته وبرامجه ومقرراته؛ يعدّلها رئيس القسم لقسمه، والمالك والعميد والوكلاء لكل الأقسام.
+     القوائم العامة (S.courses و S.faculty و S.programs) تُجمع منها تلقائيًا لبقية أجزاء الموقع. */
+  let DS_OK = false;
+  const _setCoursesOrig = setCourses, _editCourseOrig = editCourse;
+  const emptyDS = () => ({ faculty: [], programs: [], courses: [] });
+  const dsOf = (d) => { DB.deptSettings = DB.deptSettings || {}; return DB.deptSettings[d] || (DB.deptSettings[d] = emptyDS()); };
+  const canManageDeptLocal = (d) => !!ME && (isAdmin() || !!ME.collegeRole || ME.headDept === d);
+  function composeDeptSettings() {
+    const ds = DB.deptSettings; if (!ds) return;
+    const S = DB.settings, uniq = (a) => [...new Set(a.filter(Boolean))], ids = (DB.departments || []).map((d) => d.id).filter((d) => ds[d]);
+    S.courses = ids.flatMap((d) => (ds[d].courses || []).map((c) => Object.assign({}, c, { dept: d })));
+    S.faculty = uniq(ids.flatMap((d) => ds[d].faculty || []));
+    S.programs = uniq(ids.flatMap((d) => ds[d].programs || []));
+  }
+  async function loadDeptSettings(admin) {
+    BASE.deptSettings = new Map();
+    let rows;
+    try { rows = await fetchAll('dept_settings'); DS_OK = true; } catch (e) { DS_OK = false; DB.deptSettings = null; return; }
+    DB.deptSettings = {};
+    rows.forEach((r) => { DB.deptSettings[r.dept_id] = Object.assign(emptyDS(), r.data || {}); BASE.deptSettings.set(r.dept_id, JSON.stringify(DB.deptSettings[r.dept_id])); });
+    if (admin && !rows.length) {   // ترحيل لمرة واحدة من الإعدادات العامة القديمة
+      const S = DB.settings, pid = primaryDept();
+      (DB.departments || []).forEach((d) => { const x = dsOf(d.id);
+        x.courses = (S.courses || []).filter((c) => (c.dept || pid) === d.id).map((c) => ({ name: c.name, code: c.code || '', clos: c.clos || [] }));
+        x.faculty = ((S.deptFaculty || {})[d.id]) || (d.id === pid ? (S.faculty || []).slice() : []);
+        x.programs = ((S.deptPrograms || {})[d.id]) || (d.id === pid ? (S.programs || []).slice() : []); });
+    }
+    composeDeptSettings();
+  }
+  async function pushDeptSettings() {
+    if (!DS_OK || !DB.deptSettings || !BASE.deptSettings) return true;
+    let ok = true;
+    for (const [d, x] of Object.entries(DB.deptSettings)) {
+      const j = JSON.stringify(x);
+      if (BASE.deptSettings.get(d) === j || !canManageDeptLocal(d) || !deptById(d)) continue;
+      const { error } = await sb.from('dept_settings').upsert([{ dept_id: d, data: x }]);
+      if (!error) BASE.deptSettings.set(d, j); else if (isNetErr(error)) ok = false; else { denied(error); BASE.deptSettings.set(d, j); }
+    }
+    return ok;
+  }
+  const dsMissingNote = () => '<div class="panel" style="border-color:#E6B4B4"><div class="body bad small">لم يُفعَّل جدول إعدادات الأقسام في قاعدة البيانات بعد. نفّذ ملف تحديث قاعدة البيانات في SQL Editor ثم أعد تحميل الموقع.</div></div>';
+
+  /* تبويب «عام»: القائمتان للعرض فقط وتُجمعان من الأقسام */
+  { const _sg = setGeneral; setGeneral = function () {
+      if (!DS_OK) return _sg();
+      composeDeptSettings();
+      return _sg().replace('<label class="f full">البرامج (سطر لكل برنامج)<textarea id="sPr">', '<label class="f full">البرامج في كل الأقسام <span class="small muted">(تُعدَّل من «إعدادات القسم» لكل قسم)</span><textarea id="sPr" readonly style="background:#F6F8F7">')
+        .replace('<label class="f full">أعضاء هيئة التدريس (سطر لكل عضو)<textarea id="sF" style="min-height:140px">', '<label class="f full">أعضاء هيئة التدريس في كل الأقسام <span class="small muted">(تُعدَّل من «إعدادات القسم» لكل قسم)</span><textarea id="sF" readonly style="min-height:140px;background:#F6F8F7">');
+    }; }
+  /* نافذة القسم (المالك): الدكاترة والبرامج */
+  { const _od = window.openDept, _sd = window.saveDept;
+    window.openDept = function (id) {
+      _od(id); if (!DS_OK) return;
+      const x = id ? dsOf(id) : emptyDS(), err = document.getElementById('dpErr'); if (!err) return;
+      err.insertAdjacentHTML('beforebegin', `<label class="f full">أعضاء هيئة التدريس في القسم (سطر لكل عضو)<textarea id="dpF" style="min-height:110px">${esc((x.faculty || []).join('\n'))}</textarea></label>
+        <label class="f full">برامج القسم (سطر لكل برنامج)<textarea id="dpP">${esc((x.programs || []).join('\n'))}</textarea></label>`);
+    };
+    window.saveDept = function (id) {
+      const fe = document.getElementById('dpF'), pe = document.getElementById('dpP'), nm = val('dpN');
+      const lines = (el) => el ? el.value.split('\n').map((t) => t.trim()).filter(Boolean) : null;
+      const fac = lines(fe), pr = lines(pe);
+      _sd(id);
+      const d = id ? deptById(id) : (DB.departments || []).find((x) => x.name === nm);
+      if (!d || !DS_OK) return;
+      const x = dsOf(d.id); if (fac) x.faculty = fac; if (pr) x.programs = pr;
+      composeDeptSettings(); save();
+    }; }
+
+  /* --- المقررات (مشتركة بين صفحة المالك وصفحة رئيس القسم) --- */
+  window.dmsEditCourse = function (d, i) {
+    if (!canManageDeptLocal(d)) return;
+    const c = i != null ? dsOf(d).courses[i] : { name: '', code: '', clos: ['', '', '', ''] };
+    modal(i != null ? 'تعديل مقرر' : 'مقرر جديد — ' + deptName(d), `<div class="formgrid"><label class="f full">اسم المقرر<input id="coN" value="${esc(c.name)}"></label>
+      <label class="f">الرمز<input id="coC" value="${esc(c.code || '')}"></label><span></span>
+      ${[0, 1, 2, 3].map((j) => `<label class="f full">مخرج التعلم ${j + 1}<input id="coL${j}" value="${esc((c.clos || [])[j] || '')}"></label>`).join('')}</div>`,
+      `<button class="btn primary" onclick="dmsSaveCourse('${d}',${i != null ? i : 'null'})">حفظ المقرر</button>${i != null ? `<span class="sp"></span><button class="btn danger" onclick="dmsDelCourse('${d}',${i})">حذف</button>` : ''}`);
+  };
+  window.dmsSaveCourse = function (d, i) {
+    const c = { name: val('coN'), code: val('coC'), clos: [0, 1, 2, 3].map((j) => val('coL' + j)) };
+    if (!c.name) { alert('اكتب اسم المقرر.'); return; }
+    const L = dsOf(d).courses; if (i != null) L[i] = c; else L.push(c);
+    composeDeptSettings(); audit(i != null ? 'عدّل مقررًا' : 'أضاف مقررًا', c.name, deptName(d)); save(); closeModal(); refresh();
+  };
+  window.dmsDelCourse = function (d, i) {
+    if (!confirm('حذف المقرر؟')) return;
+    const c = dsOf(d).courses.splice(i, 1)[0]; composeDeptSettings(); audit('حذف مقررًا', c ? c.name : '', deptName(d)); save(); closeModal(); refresh();
+  };
+  editCourse = function (gi) {   // توافق مع الروابط القديمة: الفهرس في القائمة العامة
+    if (!DS_OK) return _editCourseOrig(gi);
+    if (gi == null) { dmsEditCourse(VIEW.cdept || curDept(), null); return; }
+    const c = DB.settings.courses[gi]; if (!c) return; const L = dsOf(c.dept).courses;
+    dmsEditCourse(c.dept, L.findIndex((x) => x.name === c.name && (x.code || '') === (c.code || '')));
+  };
+  function coursesPanel(d, showDept) {
+    const deps = DB.departments || [];
+    const rows = d ? dsOf(d).courses.map((c, i) => ({ c, i, d })) : deps.flatMap((x) => dsOf(x.id).courses.map((c, i) => ({ c, i, d: x.id })));
+    const can = d ? canManageDeptLocal(d) : isAdmin();
+    return `<div class="panel"><h3>المقررات ومخرجات التعلم${d ? ' — ' + esc(deptName(d)) : ''} (${rows.length})<span class="sp"></span>
+      ${can && d ? `<button class="btn sm" onclick="dmsCoursesTemplate('${d}')">نموذج Excel</button>
+        <label class="btn sm">استيراد من Excel<input type="file" accept=".xlsx,.xls,.csv" class="hidden" onchange="dmsCoursesImport(this.files[0],'${d}');this.value=''"></label>
+        <button class="btn sm primary" onclick="dmsEditCourse('${d}',null)">مقرر جديد</button>` : ''}</h3>
+      <div class="tbl-wrap"><table class="t"><tr><th>المقرر</th><th>الرمز</th>${showDept ? '<th>القسم</th>' : ''}<th>المخرجات</th></tr>
+      ${rows.map((r) => `<tr class="${canManageDeptLocal(r.d) ? 'click' : ''}" ${canManageDeptLocal(r.d) ? `onclick="dmsEditCourse('${r.d}',${r.i})"` : ''}><td>${esc(r.c.name)}</td><td class="small">${esc(r.c.code || '')}</td>${showDept ? `<td class="small">${esc(deptName(r.d))}</td>` : ''}<td class="small muted">${(r.c.clos || []).filter(Boolean).length} مخرجات</td></tr>`).join('')
+        || `<tr><td colspan="4" class="muted">لا توجد مقررات بعد. أضفها يدويًا أو استوردها من Excel.</td></tr>`}</table></div></div>`;
+  }
+  setCourses = function () {
+    if (!DS_OK) return _setCoursesOrig();
+    const deps = DB.departments || [], f = VIEW.cdept || '';
+    const chips = deps.length > 1 ? `<div class="dept-chips" style="margin:0 0 12px">${[['', 'كل الأقسام']].concat(deps.map((d) => [d.id, d.name + ' (' + dsOf(d.id).courses.length + ')'])).map(([k, l]) =>
+      `<button class="${f === k ? 'on' : ''}" onclick="go('settings',{st:'courses',cdept:'${k}'})">${esc(l)}</button>`).join('')}</div>` : '';
+    return chips + coursesPanel(f || (deps.length > 1 ? '' : primaryDept()), !f && deps.length > 1) +
+      `<p class="small muted">${f || deps.length < 2 ? '' : 'اختر قسمًا لإضافة مقررات إليه أو استيرادها. '}يدير رئيس كل قسم مقررات قسمه من صفحة «إعدادات القسم». ومقررات اختبار الجاهزية وأسئلته تُدار من داخل نظام الجاهزية لكل قسم.</p>`;
+  };
+  window.dmsCoursesTemplate = async function (d) {
+    await exportXlsx('نموذج_مقررات_' + deptName(d).replace(/\s+/g, '_'), [
+      ['المقررات', [['اسم المقرر', 'الرمز', 'مخرج التعلم 1', 'مخرج التعلم 2', 'مخرج التعلم 3', 'مخرج التعلم 4'],
+        ['مثال: مبادئ الإدارة المالية', 'FIN 101', 'يشرح المفاهيم الأساسية', 'يحلل القوائم المالية', '', '']].concat(dsOf(d).courses.map((c) => [c.name, c.code || ''].concat((c.clos || []).slice(0, 4))))],
+      ['تعليمات', [['التعليمات'], ['سطر لكل مقرر. احذف سطر المثال قبل الرفع.'], ['المقرر الموجود (بالرمز نفسه أو الاسم نفسه) يُحدَّث، والجديد يُضاف.'], ['هذا الملف لمقررات «' + deptName(d) + '» فقط.']]]]);
+  };
+  window.dmsCoursesImport = async function (f, d) {
+    if (!f || !canManageDeptLocal(d)) return;
+    let rows;
+    try { await ensureXLSX(); const wb = XLSX.read(new Uint8Array(await f.arrayBuffer()), { type: 'array' }); rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' }); }
+    catch (e) { alert('تعذرت قراءة الملف. استخدم «نموذج Excel».'); return; }
+    const n2 = (x) => String(x == null ? '' : x).replace(/\s+/g, ' ').trim();
+    const hi = rows.findIndex((r) => r.some((c) => n2(c) === 'اسم المقرر'));
+    if (hi < 0) { alert('لم أجد عمود «اسم المقرر». استخدم النموذج دون تغيير العناوين.'); return; }
+    const H = rows[hi].map(n2), col = (n) => H.indexOf(n), cN = col('اسم المقرر'), cC = col('الرمز'), cL = [1, 2, 3, 4].map((j) => col('مخرج التعلم ' + j));
+    const L = dsOf(d).courses; let add = 0, upd = 0;
+    rows.slice(hi + 1).forEach((r) => {
+      const name = n2(r[cN]); if (!name || name.startsWith('مثال:')) return;
+      const c = { name, code: cC >= 0 ? n2(r[cC]) : '', clos: cL.map((ci) => ci >= 0 ? n2(r[ci]) : '') };
+      const i = L.findIndex((x) => (c.code && x.code === c.code) || x.name === c.name);
+      if (i >= 0) { L[i] = c; upd++; } else { L.push(c); add++; }
+    });
+    if (!add && !upd) { alert('لم يُستورد أي مقرر.'); return; }
+    composeDeptSettings(); audit('استيراد مقررات من Excel', deptName(d), add + ' جديد، ' + upd + ' تحديث'); save(); refresh();
+    alert('تم: ' + add + ' مقرر جديد، و' + upd + ' مقرر حُدّث في ' + deptName(d) + '.');
+  };
+
+  /* ================= صفحة «إعدادات القسم» ================= */
+  const myDepts = () => (DB.departments || []).filter((d) => canManageDeptLocal(d.id));
+  function pgDeptSettings() {
+    if (!DS_OK) return dsMissingNote();
+    const deps = myDepts(); if (!deps.length) return noAccess();
+    let d = VIEW.dept && deps.some((x) => x.id === VIEW.dept) ? VIEW.dept : (ME.headDept && deps.some((x) => x.id === ME.headDept) ? ME.headDept : deps[0].id);
+    const x = dsOf(d), comms = DB.committees.filter((c) => c.dept === d), cids = new Set(comms.map((c) => c.id));
+    const head = DB.users.find((u) => u.headDept === d && u.active !== false);
+    const members = DB.users.filter((u) => u.active !== false && Object.keys(u.memberships || {}).some((k) => cids.has(k)));
+    const sys = systems().filter((s2) => (s2.committees || []).some((c) => cids.has(c)));
+    const chips = deps.length > 1 ? `<div class="dept-chips" style="margin-bottom:14px">${deps.map((y) => `<button class="${y.id === d ? 'on' : ''}" onclick="go('deptset',{dept:'${y.id}'})">${esc(y.name)}</button>`).join('')}</div>` : '';
+    return chips + `<div class="panel"><h3>${esc(deptName(d))}</h3><div class="body small">رئيس القسم: <b>${head ? esc(head.name) : 'لم يُحدد'}</b> · اللجان: ${comms.map((c) => esc(c.baseName || c.name)).join('، ') || '—'}
+        <p class="muted" style="margin-bottom:0">هذه الصفحة خاصة بقسمك: ما تعدّله هنا يظهر لقسمك فقط، ولا يرى غيرك من رؤساء الأقسام بيانات قسمك.</p></div></div>
+      <div class="panel"><h3>أنظمة القسم</h3><div class="body"><div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${sys.map((s2) => `<button class="btn" onclick="${s2.app ? `go('tool',{app:'${s2.app}'})` : `go('${s2.page}')`}">${esc(s2.name)}</button>`).join('') || '<span class="small muted">لا توجد أنظمة مرتبطة بلجان القسم.</span>'}</div>
+        <p class="small muted" style="margin-bottom:0">أسئلة اختبار الجاهزية ومقرراته وطلابه تُدار من داخل «نظام الجاهزية» الخاص بقسمك.</p></div></div>
+      <div class="panel"><h3>أعضاء هيئة التدريس والبرامج</h3><div class="body formgrid">
+        <label class="f">أعضاء هيئة التدريس (سطر لكل عضو)<textarea id="dsF" style="min-height:160px">${esc((x.faculty || []).join('\n'))}</textarea></label>
+        <label class="f">برامج القسم (سطر لكل برنامج)<textarea id="dsP" style="min-height:160px">${esc((x.programs || []).join('\n'))}</textarea></label>
+        <div class="full"><button class="btn primary" onclick="dmsSaveDeptLists('${d}')">حفظ</button></div></div></div>
+      ${coursesPanel(d, false)}
+      <div class="panel"><h3>أعضاء لجان القسم (${members.length})<span class="sp"></span>
+        <button class="btn sm" onclick="dmsImportTemplate()">نموذج Excel</button><label class="btn sm">استيراد من Excel<input type="file" accept=".xlsx,.xls,.csv" class="hidden" onchange="dmsImportLoad(this.files[0]);this.value=''"></label><button class="btn sm primary" onclick="openUser()">عضو جديد</button></h3>
+        <div class="body" style="padding-top:0"><div id="impBox"></div></div>
+        <div class="tbl-wrap"><table class="t"><tr><th>الاسم</th><th>اسم الدخول</th><th>اللجان والأدوار</th></tr>
+        ${members.map((u) => `<tr class="${canManageUser(u) ? 'click' : ''}" ${canManageUser(u) ? `onclick="openUser('${u.id}')"` : ''}><td>${esc(u.name)}</td><td dir="ltr" class="small">${esc(u.username)}</td><td class="small">${Object.entries(u.memberships || {}).filter(([k]) => cids.has(k)).map(([k, r]) => esc((comm(k).baseName || comm(k).name)) + ' (' + (ROLE_AR[r] || r) + ')').join('، ')}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">لا يوجد أعضاء بعد.</td></tr>'}</table></div></div>`;
+  }
+  window.dmsSaveDeptLists = function (d) {
+    if (!canManageDeptLocal(d)) return;
+    const lines = (id) => document.getElementById(id).value.split('\n').map((t) => t.trim()).filter(Boolean);
+    const x = dsOf(d); x.faculty = lines('dsF'); x.programs = lines('dsP');
+    composeDeptSettings(); audit('عدّل إعدادات القسم', deptName(d), x.faculty.length + ' عضو هيئة تدريس، ' + x.programs.length + ' برنامج'); save(); toast('تم الحفظ');
+  };
+  /* التوجيه وروابط القائمة */
+  { const _g = go; go = function (page, opts) {
+      if (page === 'deptset') {
+        if (ME && ME.mustChange) { changePassword(true); return; }
+        VIEW = Object.assign({ page }, opts || {}); renderNav();
+        $('#title').textContent = 'إعدادات القسم'; $('#main').innerHTML = pgDeptSettings(); scrollTo(0, 0); return;
+      }
+      return _g(page, opts);
+    }; }
+  { const _rn = renderNav; renderNav = function () {
+      _rn();
+      const nav = document.getElementById('nav');
+      if (!DS_OK || !nav || !ME || !myDepts().length || !(SCOPE === 'head' || SCOPE === 'college' || SCOPE === 'owner')) return;
+      const a = document.createElement('a'); a.className = VIEW.page === 'deptset' ? 'on' : '';
+      a.innerHTML = '<span class="nav-ic">' + icon('book', 17) + '</span>إعدادات القسم'; a.onclick = () => go('deptset');
+      const first = nav.querySelector('a'); if (first && first.nextSibling) nav.insertBefore(a, first.nextSibling); else nav.appendChild(a);
+    }; }
+  { const _pd = window.pgDepts; window.pgDepts = function () {
+      if (!DS_OK) return _pd();
+      return _pd().replace(/<button class="btn sm" onclick="go\('head',\{dept:'([^']+)'\}\)">لوحة القسم<\/button>/g,
+        (m, id) => m + ` <button class="btn sm" onclick="go('deptset',{dept:'${id}'})">إعدادات القسم</button>`);
+    }; }
+
+  /* ================= حذف قسم بالكامل ================= */
+  window.delDept = async function (id) {
+    if (!isAdmin()) return;
+    if (id === primaryDept()) { alert('لا يمكن حذف القسم الأساسي.'); return; }
+    const d = deptById(id); if (!d) return;
+    const ids = new Set(DB.committees.filter((c) => c.dept === id).map((c) => c.id));
+    const used = DB.tasks.filter((t) => ids.has(t.committee)).length + DB.kpis.filter((k) => ids.has(k.committee)).length + DB.files.filter((f) => ids.has(f.committee)).length
+      + DB.clo.filter((m) => ids.has(m.committee)).length + DB.visits.filter((v) => ids.has(v.committee)).length + (DB.initiatives || []).filter((x) => ids.has(x.committee)).length;
+    if (used) { alert('لا يمكن حذف «' + d.name + '» لأن في لجانه ' + used + ' من المهام أو المؤشرات أو الملفات أو الزيارات. احذفها أو انقلها أولًا.'); return; }
+    let nApp = 0, nEx = 0, nSub = 0;
+    try {
+      const a = await sb.from('app_storage').select('key').eq('scope', id); nApp = (a.data || []).length;
+      const e = await sb.from('online_exams').select('id').eq('scope', id); nEx = (e.data || []).length;
+      const r = await sb.from('online_submissions').select('id').eq('scope', id); nSub = (r.data || []).length;
+    } catch (e) {}
+    const heads = DB.users.filter((u) => u.headDept === id).map((u) => u.name);
+    if (!confirm('حذف «' + d.name + '» نهائيًا؟\n\n• لجانه: ' + ids.size + '\n• بيانات أنظمته (الجاهزية والاستطلاعات): ' + nApp + ' عنصر\n• اختباراته الإلكترونية: ' + nEx + ' (ونتائجها ' + nSub + ')' +
+      (heads.length ? '\n• تُلغى رئاسة القسم عن: ' + heads.join('، ') + ' (يبقى حسابه)' : '') + '\n\nلا يمكن التراجع. يُنصح بتنزيل نسخة شاملة قبل الحذف.')) return;
+    DB.departments = DB.departments.filter((x) => x.id !== id);
+    DB.committees = DB.committees.filter((c) => !ids.has(c.id));
+    DB.templates = (DB.templates || []).filter((t) => !ids.has(t.committee));
+    DB.events = (DB.events || []).filter((t) => !ids.has(t.committee));
+    DB.goals = (DB.goals || []).filter((g) => g.dept !== id);
+    DB.users.forEach((u) => { ids.forEach((k) => { if (u.memberships) delete u.memberships[k]; }); if (u.headDept === id) { u.headDept = ''; u.head = false; } });
+    if (DB.deptSettings) delete DB.deptSettings[id];
+    if (SEL_DEPT === id) SEL_DEPT = null; if (LAND_DEPT === id) LAND_DEPT = null;
+    Object.keys(FRAMES).forEach((k) => { if (FRAMES[k].dataset.scope === id) { FRAMES[k].remove(); delete FRAMES[k]; } });
+    /* عند العودة إلى قسم واحد تُزال لاحقة «– اسم القسم» من أسماء اللجان */
+    if (DB.departments.length === 1) {
+      const suf = ' – ' + DB.departments[0].name;
+      DB.committees.forEach((c) => { if (c.name && c.name.endsWith(suf)) c.name = c.name.slice(0, -suf.length); delete c.baseName; });
+    }
+    audit('حذف قسمًا', d.name, ids.size + ' لجان، ' + nApp + ' عنصر من بيانات الأنظمة، ' + nEx + ' اختبارًا إلكترونيًا');
+    save(); refresh();
+    /* تنظيف بيانات أنظمة القسم واختباراته على الخادم (رؤساء الأقسام لم يعودوا يصلون إليها أصلًا) */
+    try {
+      const a = await sb.from('app_storage').select('app_key,key').eq('scope', id);
+      for (const r of (a.data || [])) await sb.rpc('app_storage_del', { p_app: r.app_key, p_scope: id, p_key: r.key });
+      await sb.from('online_exams').delete().eq('scope', id);
+    } catch (e) { console.warn(e); }
+    toast('حُذف «' + d.name + '»');
   };
 
   /* ---------- التشغيل ---------- */
