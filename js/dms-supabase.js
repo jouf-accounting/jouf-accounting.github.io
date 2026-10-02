@@ -177,11 +177,11 @@
     return ok;
   }
 
-  async function pushCommittees() {
+  async function pushCommittees(phase) {
     const base = BASE.committees, admin = isAdmin();
     const cur = new Map(DB.committees.map((c) => [c.id, c]));
     let ok = true;
-    for (const [id, c] of cur) {
+    if (phase !== 'del') for (const [id, c] of cur) {
       const j = JSON.stringify(commRow(c));
       if (base.get(id) === j) continue;
       if (!base.has(id) && !admin) continue;
@@ -189,7 +189,7 @@
       const { error } = await sb.from('committees').upsert([commRow(c)]);
       if (!error) base.set(id, j); else if (isNetErr(error)) { ok = false; LAST_ERR = error.message; } else { denied(error); base.set(id, j); }
     }
-    if (admin) for (const id of [...base.keys()]) if (!cur.has(id)) {
+    if (admin && phase === 'del') for (const id of [...base.keys()]) if (!cur.has(id)) {
       const { error } = await sb.from('committees').delete().eq('id', id);
       if (!error) base.delete(id); else if (isNetErr(error)) ok = false; else { denied(error); base.delete(id); }
     }
@@ -259,7 +259,7 @@
     pushing = true; setConn('busy'); let ok = true;
     try {
       ok = (await pushSimpleAdmin('departments', 'departments', DB.departments || [], depRow)) && ok;
-      ok = (await pushCommittees()) && ok;
+      ok = (await pushCommittees('up')) && ok;
       ok = (await pushUsers()) && ok;
       if (isAdmin()) {
         const sj = J(DB.settings);
@@ -269,6 +269,7 @@
       ok = (await pushAppVersions()) && ok;
       for (const C of ['goals', 'templates', 'tasks', 'kpis', 'visits', 'clo', 'files', 'initiatives', 'events', 'collegeEvents', 'notifs', 'log'])
         ok = (await pushColl(C)) && ok;
+      ok = (await pushCommittees('del')) && ok;   // حذف اللجان بعد حذف قوالبها ومراجعها
     } catch (e) { ok = false; LAST_ERR = e.message || String(e); console.error(e); }
     pushing = false;
     setConn(ok ? 'ok' : 'err');
@@ -620,6 +621,62 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
   };
   window.dmsResync = async function () { await resync(); toast('تمت المزامنة'); refresh(); };
 
+  /* ---------- النسخة الاحتياطية الشاملة لقاعدة البيانات ---------- */
+  const BACKUP_TABLES = ['settings', 'departments', 'committees', 'profiles', 'memberships', 'app_versions', 'custom_apps',
+    'tasks', 'kpis', 'visits', 'clo', 'files', 'templates', 'initiatives', 'events', 'goals', 'college_events', 'notifs',
+    'activity_log', 'app_storage', 'online_exams', 'online_submissions'];
+  function daysSince(iso) { return iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86400000) : null; }
+  window.dmsFullBackup = async function (btn) {
+    if (!isAdmin()) { alert('النسخة الشاملة من صلاحية المالك.'); return; }
+    const withFiles = !!(document.getElementById('fbFiles') || {}).checked;
+    const st = document.getElementById('fbStatus');
+    const say = (t) => { if (st) st.textContent = t; };
+    if (btn) btn.disabled = true;
+    try {
+      const out = { kind: 'dms-full-backup', v: 1, at: new Date().toISOString(), project: CFG.supabaseUrl, tables: {}, storage: {} };
+      for (const t of BACKUP_TABLES) {
+        say('جارٍ نسخ: ' + t + '…');
+        try { out.tables[t] = await fetchAll(t); } catch (e) { out.tables[t] = { error: e.message || String(e) }; }
+      }
+      if (withFiles) {
+        const files = Array.isArray(out.tables.files) ? out.tables.files : [];
+        let n = 0;
+        for (const f of files) {
+          const d = f.data || {}, path = (f.committee_id || '_') + '/' + f.id;
+          say('جارٍ نسخ المرفقات: ' + (++n) + ' من ' + files.length);
+          const { data } = await sb.storage.from('files').download(path);
+          if (data) out.storage['files/' + path] = await new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(data); });
+        }
+      }
+      const counts = Object.entries(out.tables).map(([k, v]) => k + ': ' + (Array.isArray(v) ? v.length : 'خطأ')).join('، ');
+      const blob = new Blob([JSON.stringify(out)], { type: 'application/json' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = 'نسخة_شاملة_' + new Date().toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+      DB.settings.lastFullBackup = out.at; save();
+      audit('نسخة احتياطية شاملة', 'قاعدة البيانات', Math.round(blob.size / 1024) + ' ك.ب');
+      say('تم التنزيل (' + Math.round(blob.size / 1024) + ' ك.ب). ' + counts);
+    } catch (e) { say('تعذر إكمال النسخة: ' + (e.message || e)); }
+    if (btn) btn.disabled = false;
+  };
+  function fullBackupCard() {
+    const d = daysSince(DB.settings.lastFullBackup);
+    return `<div class="panel"><h3>النسخة الاحتياطية الشاملة لقاعدة البيانات</h3><div class="body">
+      <p class="small">تنزّل ملفًا واحدًا فيه <b>كل</b> بيانات الموقع من قاعدة البيانات المركزية: الأقسام واللجان والمستخدمين وصلاحياتهم، والمهام والمؤشرات والملفات، وبيانات الأنظمة المدمجة لكل قسم، والاختبارات الإلكترونية ونتائج الطلاب، وسجل الحركات.
+      الخطة المجانية في Supabase لا تأخذ نسخًا تلقائية، فهذه النسخة هي ضمانك عند أي طارئ. احفظها خارج جهازك (بريدك أو Google Drive)، مرة كل أسبوع على الأقل، وقبل أي تحديث كبير.</p>
+      <p class="small ${d === null || d > 7 ? 'bad' : 'good'}"><b>آخر نسخة شاملة: ${d === null ? 'لم تؤخذ بعد' : d === 0 ? 'اليوم' : 'منذ ' + d + ' يوم'}</b></p>
+      <label class="check"><input type="checkbox" id="fbFiles" checked> تضمين المرفقات (الملفات المرفوعة في المهام والوثائق)</label>
+      <div style="margin-top:10px"><button class="btn primary" onclick="dmsFullBackup(this)">تنزيل نسخة شاملة الآن</button></div>
+      <p class="small muted" id="fbStatus" style="margin-top:8px"></p></div></div>`;
+  }
+  { const _sbk = setBackup; setBackup = function () { return (isAdmin() ? fullBackupCard() : '') + _sbk(); }; }
+  { const _oh = pgOHome; pgOHome = function () {
+      const d = daysSince(DB.settings.lastFullBackup);
+      const warn = (isAdmin() && (d === null || d > 7)) ? `<div class="panel" style="border-color:#E6B4B4;background:#FDF3F3"><div class="body" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <b class="bad" style="flex:1;min-width:220px">${d === null ? 'لم تؤخذ نسخة احتياطية شاملة لقاعدة البيانات بعد.' : 'آخر نسخة احتياطية شاملة منذ ' + d + ' يوم.'} الخطة المجانية لا تحفظ نسخًا تلقائية.</b>
+        <button class="btn primary" onclick="go('settings',{st:'backup'})">أخذ نسخة الآن</button></div></div>` : '';
+      return warn + _oh(); }; }
+
   /* ---------- التشغيل ---------- */
   function applyBootstrap(b) {
     const s = b.settings || {};
@@ -636,7 +693,7 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
     try { const { data, error } = await sb.rpc('public_bootstrap'); if (error) throw error; applyBootstrap(data || {}); hasAdmin = !!(data && data.has_admin); }
     catch (e) { $('#lgHint').innerHTML = '<span class="bad">تعذر الاتصال بقاعدة البيانات: ' + esc(e.message || e) + '</span>'; }
     const S = DB.settings;
-    document.title = (DB.departments || []).length > 1 ? 'نظام إدارة أعمال أقسام ' + S.college : 'نظام إدارة أعمال ' + S.dept + ' – ' + S.college;
+    document.title = siteTitle();
     renderLanding();
     if (!hasAdmin) $('#lgHint').textContent = 'لم يُنشأ حساب المالك بعد. أنشئه بسكربت create-owner كما في دليل التشغيل.';
     const ss = readSession();
