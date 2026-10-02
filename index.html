@@ -2,6 +2,7 @@
 <html lang="ar" dir="rtl" translate="no" class="notranslate">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache">
 <meta name="google" content="notranslate">
 <meta http-equiv="Content-Language" content="ar">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -284,7 +285,7 @@ table.t tr.click:hover td{background:#F7F9F8}
 
 <section id="login">
   <header class="lhead"><div class="ledger-lines"></div>
-    <div class="lhead-in"><div><div class="small" id="lgOrg"></div><h1 id="lgTitle"></h1><p>اضغط على خلية لجنتك للدخول</p></div>
+    <div class="lhead-in"><div><div class="small" id="lgOrg"></div><h1 id="lgTitle"></h1><p id="lgSub">اضغط على خلية لجنتك للدخول</p></div>
     <div class="lhead-side"><div class="small" id="lgSync"></div><button type="button" class="btn sm" onclick="linkDeviceDlg()">ربط هذا الجهاز بقاعدة بيانات القسم</button></div></div>
   </header>
   <div id="tiles" class="tiles"></div>
@@ -1001,7 +1002,7 @@ function pgReports(){
   let h=`<div class="filters"><select onchange="go('reports',Object.assign(VIEW,{r:this.value}))">${opt(Object.entries(REPORTS).map(([v,l])=>({v,l})),r)}</select>
     ${r==='monthly'?`<input type="month" value="${month}" onchange="go('reports',Object.assign(VIEW,{m:this.value}))" style="width:auto">`:''}
     ${r==='committee'?`<select onchange="go('reports',Object.assign(VIEW,{cid2:this.value}))">${opt(cs.map(c=>({v:c.id,l:c.name})),cid)}</select>`:''}
-    <span style="flex:1"></span><button class="btn" onclick="printReport()">طباعة / PDF</button><button class="btn primary" onclick="exportReport()">تصدير Excel</button></div>`;
+    <span style="flex:1"></span><button class="btn" onclick="printReport()">طباعة / PDF</button><button class="btn" onclick="exportReportWord()">تصدير Word</button><button class="btn primary" onclick="exportReport()">تصدير Excel</button></div>`;
   const rep=buildReport(r,{month,cid});
   h+=`<div class="panel"><h3>${esc(rep.title)}</h3><div class="body">${rep.summary?`<p>${rep.summary}</p>`:''}${rep.tables.map(t=>`<h4 style="margin:14px 0 6px">${esc(t.name)}</h4><div class="tbl-wrap">${tblHtml(t.rows)}</div>`).join('')||'<div class="empty">لا توجد بيانات لهذا التقرير.</div>'}</div></div>`;
   return h;
@@ -1348,10 +1349,10 @@ function pgHead(){
 /* ===================== الإعدادات ===================== */
 function pgSettings(){
   if(!isAdmin())return noAccess();
-  const tabs=[['general','عام'],['systems','الأنظمة والتحديثات'],['sync','المزامنة ودخول الأعضاء'],['committees','اللجان'],['courses','المقررات والمخرجات'],['backup','النسخ الاحتياطي']];
+  const tabs=[['general','عام'],['identity','الهوية والمسميات'],['systems','الأنظمة والتحديثات'],['sync','المزامنة ودخول الأعضاء'],['committees','اللجان'],['courses','المقررات والمخرجات'],['data','التصدير والاستيراد'],['backup','النسخ الاحتياطي']];
   const st=VIEW.st||'general';
   let h=`<div class="tabs">${tabs.map(([k,l])=>`<a class="${st===k?'on':''}" onclick="go('settings',{st:'${k}'})">${l}</a>`).join('')}</div>`;
-  return h+({general:setGeneral,systems:setSystems,sync:setSyncTab,committees:setCommittees,courses:setCourses,backup:setBackup}[st]||setGeneral)();
+  return h+({general:setGeneral,systems:setSystems,sync:setSyncTab,committees:setCommittees,courses:setCourses,backup:setBackup,identity:window.setIdentity||setGeneral,data:window.setDataTab||setGeneral}[st]||setGeneral)();
 }
 function setGeneral(){const S=DB.settings;
   return `<div class="panel"><h3>بيانات الجهة والفصل</h3><div class="body formgrid">
@@ -2163,7 +2164,10 @@ function delCommittee(cid){
     if(cur.some(x=>x===t||ids.has(x)))S.appComm[k]=cur.filter(x=>x!==t&&!ids.has(x))});
   audit('حذف لجنة',nm,group.length+' نسخة');save();go('home');toast('حُذفت اللجنة')}
 /* عنوان الموقع: يُبنى من اسم القسم والكلية في «الإعدادات العامة» */
-function siteTitle(){const S=DB.settings,many=(DB.departments||[]).length>1;return many?'أقسام '+S.college:S.dept+(S.college?' ب'+S.college:'')}
+/* المسميات التي يعدّلها المالك من «الإعدادات العامة ← الهوية والمسميات» */
+function LBL(k,d){const L=(DB&&DB.settings&&DB.settings.labels)||{};const v=L[k];return (v!=null&&String(v).trim())?String(v).trim():d}
+function siteTitleAuto(){const S=DB.settings,many=(DB.departments||[]).length>1;return many?'أقسام '+S.college:S.dept+(S.college?' ب'+S.college:'')}
+function siteTitle(){return LBL('siteTitle',siteTitleAuto())}
 function deptOf(cid){const c=((DB&&DB.committees)||[]).find(x=>x.id===cid);return c?(c.dept||''):''}
 function deptById(id){return ((DB&&DB.departments)||[]).find(d=>d.id===id)||null}
 function deptName(id){const d=deptById(id);return d?d.name:'—'}
@@ -2320,27 +2324,34 @@ renderLanding=function(){
   const S=DB.settings,deps=DB.departments||[];
   $('#lgOrg').textContent=S.university+' · '+S.college;
   $('#lgTitle').textContent=siteTitle();
+  if($('#lgSub'))$('#lgSub').textContent=LBL('siteSub','اضغط على خلية لجنتك للدخول');
   let sel=LAND_DEPT;try{sel=sel||localStorage.getItem('dms-land-dept')}catch(e){}
   if(!deps.some(d=>d.id===sel))sel=deps[0]?deps[0].id:'';LAND_DEPT=sel;
   const sysOf=cid=>systems().filter(x=>(x.committees||[]).includes(cid)).map(x=>x.name.replace(/^نظام\s*/,''));
   const hd=(t,sub)=>`<div class="land-h">${esc(t)}${sub?` <span class="small muted">${esc(sub)}</span>`:''}</div>`;
   const clg=DB.committees.filter(c=>c.level==='college'),dc=DB.committees.filter(c=>c.level!=='college'&&c.dept===sel);
   let h='';
-  if(clg.length)h+=hd('وحدات الكلية المشتركة','تخدم كل الأقسام')+clg.map(c=>landTile(c.id,c.name,c.desc,sysOf(c.id),'','مستوى الكلية')).join('');
-  h+=hd(deps.length>1?'لجان الأقسام':'لجان '+S.dept,deps.length>1?'اختر القسم ثم اللجنة':'');
+  if(clg.length)h+=hd(LBL('secCollege','وحدات الكلية المشتركة'),LBL('secCollegeSub','تخدم كل الأقسام'))+clg.map(c=>landTile(c.id,c.name,c.desc,sysOf(c.id),'','مستوى الكلية')).join('');
+  h+=hd(LBL('secDepts',deps.length>1?'لجان الأقسام':'لجان '+S.dept),deps.length>1?LBL('secDeptsSub','اختر القسم ثم اللجنة'):'');
   if(deps.length>1)h+=`<div class="dept-chips land" role="tablist" aria-label="القسم">${deps.map(d=>`<button role="tab" aria-selected="${d.id===sel}" class="${d.id===sel?'on':''}" onclick="setLandDept('${d.id}')">${esc(d.name)}</button>`).join('')}</div>`;
   h+=dc.map(c=>landTile(c.id,c.baseName||c.name,c.desc,sysOf(c.id))).join('')||'<div class="small muted" style="grid-column:1/-1">لا توجد لجان لهذا القسم.</div>';
-  h+=hd('القيادة والإدارة')+landTile('head','لوحة رئيس القسم','لرئيس كل قسم: إنجاز لجان قسمه ومؤشراته وخطته',[],'alt')
-    +landTile('college','لوحة الكلية','للعميد والوكلاء: مقارنة الأقسام ووحدات الكلية',[],'alt')
-    +landTile('owner','الإعدادات العامة','خاصة بالمالك: الأقسام والمستخدمون والصلاحيات والأنظمة والمزامنة',[],'alt');
+  h+=hd(LBL('secLead','القيادة والإدارة'))+landTile('head',LBL('tileHead','لوحة رئيس القسم'),LBL('tileHeadD','لرئيس كل قسم: إنجاز لجان قسمه ومؤشراته وخطته'),[],'alt')
+    +landTile('college',LBL('tileCollege','لوحة الكلية'),LBL('tileCollegeD','للعميد والوكلاء: مقارنة الأقسام ووحدات الكلية'),[],'alt')
+    +landTile('owner',LBL('tileOwner','الإعدادات العامة'),LBL('tileOwnerD','خاصة بالمالك: الأقسام والمستخدمون والصلاحيات والأنظمة والمزامنة'),[],'alt');
   $('#tiles').innerHTML=h};
 
 </script>
 <!-- ============ v3.0 | الموقع المتزامن (Supabase) ============ -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js"></script>
-<script src="js/reports-extra.js"></script>
-<script src="js/dms-supabase.js"></script>
+<script>
+/* تحميل ملفات الموقع بأحدث نسخة: يتجدد الرابط كل 5 دقائق فلا يعرض المتصفح نسخة قديمة بعد أي تحديث */
+(function () {
+  var v = Math.floor(Date.now() / 300000);
+  ['config.js', 'js/reports-extra.js', 'js/dms-supabase.js'].forEach(function (src) {
+    var e = document.createElement('script'); e.src = src + '?v=' + v; e.async = false; document.body.appendChild(e);
+  });
+})();
+</script>
 
 </body>
 </html>
