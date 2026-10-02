@@ -1,0 +1,39 @@
+name: keep-database-awake
+
+# يمنع توقف قاعدة البيانات المجانية في Supabase بعد أسبوع دون استخدام:
+# يرسل طلبًا بسيطًا كل 3 أيام، ويحدّث ملفًا صغيرًا أول كل شهر
+# حتى لا يوقف GitHub هذه المهمة المجدولة (يوقفها بعد 60 يومًا دون نشاط في المستودع).
+on:
+  schedule:
+    - cron: '17 6 */3 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: تنبيه قاعدة البيانات
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            "https://vfigtvclyymbumcmegbe.supabase.co/rest/v1/rpc/public_bootstrap" \
+            -H "apikey: sb_publishable_nMjEtLJc8V0H8VxOl6LcWw_WYVLB6-Y" \
+            -H "Content-Type: application/json" -d '{}')
+          echo "HTTP $code"
+          test "$code" = "200"
+
+      - uses: actions/checkout@v4
+        if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.event.schedule, '17 6') }}
+
+      - name: إبقاء المستودع نشطًا (أول كل شهر)
+        if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.event.schedule, '17 6') }}
+        run: |
+          if [ "$(date -u +%d)" != "01" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then exit 0; fi
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > .keepalive
+          git config user.name "keepalive-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .keepalive
+          git commit -m "keepalive" || exit 0
+          git push
