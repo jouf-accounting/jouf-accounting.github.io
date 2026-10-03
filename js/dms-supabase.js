@@ -511,7 +511,14 @@
     window.DMS_APPSTORE[a] = S;
     return S;
   }
+  /* الحفظ بالتتابع: لا يبدأ حفظ قبل انتهاء السابق، حتى لا يُرسَل تعديلان للمفتاح نفسه برقم إصدار قديم فيتعارضا */
   async function flushApp(S, force) {
+    if (S.flushing) { S.again = true; return; }
+    S.flushing = true;
+    try { await flushAppNow(S, force); }
+    finally { S.flushing = false; if (S.again) { S.again = false; if (S.pending.size) flushApp(S, force); } }
+  }
+  async function flushAppNow(S, force) {
     for (const [k, v] of [...S.pending]) {
       S.pending.delete(k);
       if (v === null) { const { error } = await sb.rpc('app_storage_del', { p_app: S.app, p_scope: S.scope, p_key: k }); if (error) { S.pending.set(k, v); break; } S.ver.delete(k); continue; }
@@ -674,6 +681,14 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
           if (data) out.storage['files/' + path] = await new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(data); });
         }
       }
+      /* ملفات إصدارات الأنظمة المرفوعة من الموقع (مثل الاستطلاعات 4.2 والجاهزية 1.7) */
+      const av = Array.isArray(out.tables.app_versions) ? out.tables.app_versions : [];
+      for (const row of av) for (const h of ((row.data || {}).history || [])) {
+        const name = row.app_key + '_' + h.vid + '.html';
+        say('جارٍ نسخ ملفات الأنظمة: ' + name);
+        const { data } = await sb.storage.from('apps').download(name);
+        if (data) out.storage['apps/' + name] = await new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(data); });
+      }
       const counts = Object.entries(out.tables).map(([k, v]) => k + ': ' + (Array.isArray(v) ? v.length : 'خطأ')).join('، ');
       const blob = new Blob([JSON.stringify(out)], { type: 'application/json' });
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
@@ -776,7 +791,7 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
     await writeTable('memberships', mems, mode);
   }
   async function restoreFiles(b, filter, comms) {
-    const keys = Object.keys(b.storage || {});
+    const keys = Object.keys(b.storage || {}).filter((k) => k.startsWith('files/'));
     if (!keys.length) return;
     let up = 0, skip = 0, fail = 0;
     for (const k of keys) {
@@ -789,6 +804,18 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
     }
     rlog('✓ المرفقات: رُفع ' + up + '، موجود مسبقًا ' + skip + (fail ? '، تعذّر ' + fail : ''), fail ? 'bad' : '');
   }
+  async function restoreAppFiles(b) {
+    const keys = Object.keys(b.storage || {}).filter((k) => k.startsWith('apps/'));
+    if (!keys.length) return;
+    let up = 0, skip = 0, fail = 0;
+    for (const k of keys) {
+      const m = /^data:([^;]*);base64,(.*)$/.exec(b.storage[k]); if (!m) continue;
+      const bin = atob(m[2]), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+      const { error } = await sb.storage.from('apps').upload(k.slice(5), new Blob([u8], { type: 'text/html' }), { upsert: true, contentType: 'text/html' });
+      if (!error) up++; else if (/exist|duplicate|409/i.test(error.message || '')) skip++; else fail++;
+    }
+    rlog('✓ ملفات إصدارات الأنظمة: رُفع ' + up + (skip ? '، موجود ' + skip : '') + (fail ? '، تعذّر ' + fail : ''), fail ? 'bad' : '');
+  }
   window.dmsRestoreLoad = async function (f) {
     if (!f) return;
     const box = document.getElementById('rsBox');
@@ -799,7 +826,7 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
     const other = b.project && b.project !== CFG.supabaseUrl;
     const deps = (b.tables.departments || []);
     box.innerHTML = `<div style="margin:10px 0;background:#F4F8F6;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13.5px;line-height:1.9">نسخة بتاريخ <b>${esc(fmtDT(b.at))}</b>${other ? ' — <b>من مشروع آخر</b> (نقل الموقع إلى هذا المشروع)' : ''}.
-        تحتوي: ${deps.length} أقسام، ${n('committees')} لجان، ${n('profiles')} مستخدمين، ${n('tasks')} مهام، ${n('app_storage')} عنصر من بيانات الأنظمة، ${n('online_submissions')} نتيجة اختبار إلكتروني، ${Object.keys(b.storage || {}).length} مرفقًا.</div>
+        تحتوي: ${deps.length} أقسام، ${n('committees')} لجان، ${n('profiles')} مستخدمين، ${n('tasks')} مهام، ${n('app_storage')} عنصر من بيانات الأنظمة، ${n('online_submissions')} نتيجة اختبار إلكتروني، ${Object.keys(b.storage || {}).filter((k) => k.startsWith('files/')).length} مرفقًا، ${Object.keys(b.storage || {}).filter((k) => k.startsWith('apps/')).length} ملفًا من إصدارات الأنظمة.</div>
       <div class="small muted" style="margin-bottom:6px"><b>ما الذي تريد استعادته؟</b></div>
       ${RGROUPS.map((g) => `<label class="check" style="display:flex;gap:8px;margin:6px 0"><input type="checkbox" class="rsG" value="${g.k}" checked><span>${esc(g.label)}${g.hint ? `<br><span class="small muted">${esc(g.hint)}</span>` : ''}</span></label>`).join('')}
       <div class="formgrid" style="margin-top:10px">
@@ -828,6 +855,7 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
         if (g.k === 'users') { await restoreUsers(RB, filter, mode, creds); continue; }
         for (const t of g.tables) { const r = rows(t); if (r.length) await writeTable(t, r, mode); }
         if (g.k === 'work') await restoreFiles(RB, filter, comms);
+        if (g.k === 'org' && !d) await restoreAppFiles(RB);
       }
       audit('استعادة من نسخة شاملة', fmtDT(RB.at), (d ? deptName(d) : 'الكل') + ' · ' + [...groups].join('،'));
       rlog('اكتملت الاستعادة.', 'good');
@@ -1415,6 +1443,36 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
     } catch (e) { console.warn(e); }
     toast('حُذف «' + d.name + '»');
   };
+
+  /* ================= الدخول المباشر للأعضاء إلى نظام اللجنة ================= */
+  /* العضو (غير المالك) الذي يدخل لجنة مرتبطة بنظام «دخول مباشر» يفتح النظام بملء الشاشة، دون القائمة الجانبية وشريط الأدوات. */
+  const isDirect = (k) => { const A = allApps()[k], m = appMeta(k); if (!A || m.disabled) return false; return m.direct != null ? !!m.direct : !!A.custom; };
+  function directAppFor(scope) {
+    if (!ME || isAdmin() || !scope || ['owner', 'head', 'college'].includes(scope)) return null;
+    const k = Object.keys(allApps()).find((x) => isDirect(x) && appComms(x).includes(scope));
+    return k && roleIn(scope) ? k : null;
+  }
+  function applyDirect() {
+    const k = directAppFor(SCOPE), on = !!k;
+    document.body.classList.toggle('dms-direct', on);
+    let b = document.getElementById('dmsDirectOut');
+    if (on && !b) { b = document.createElement('button'); b.id = 'dmsDirectOut'; b.className = 'btn sm'; b.textContent = 'خروج'; b.onclick = () => logout(); document.body.appendChild(b); }
+    if (!on && b) b.remove();
+    return k;
+  }
+  { const _en = enter; enter = function () { _en.apply(this, arguments); const k = applyDirect(); if (k) go('tool', { app: k }); }; }
+  { const _g2 = go; go = function (page, opts) { if (document.body.classList.contains('dms-direct') && page !== 'tool') { const k = directAppFor(SCOPE); if (k) return _g2('tool', { app: k }); } return _g2(page, opts); }; }
+  { const _lo2 = logout; logout = async function () { document.body.classList.remove('dms-direct'); const b = document.getElementById('dmsDirectOut'); if (b) b.remove(); return _lo2.apply(this, arguments); }; }
+  window.dmsSysDirect = function (k) { const on = !isDirect(k); setMeta(k, { direct: on }); audit(on ? 'تفعيل الدخول المباشر' : 'إيقاف الدخول المباشر', (allApps()[k] || {}).name || k, ''); save(); refresh();
+    toast(on ? 'الأعضاء يدخلون هذا النظام مباشرة بملء الشاشة' : 'يرى الأعضاء صفحة اللجنة كاملة'); };
+  { const _ss2 = setSystems; setSystems = function () { let h = _ss2();
+      Object.keys(allApps()).forEach((k) => { h = h.replace(`<button class="btn sm" onclick="dmsSysRename('${k}')">الاسم</button>`,
+        `<button class="btn sm" onclick="dmsSysDirect('${k}')" title="العضو يفتح النظام مباشرة دون صفحة اللجنة">${isDirect(k) ? 'دخول مباشر ✓' : 'دخول مباشر'}</button><button class="btn sm" onclick="dmsSysRename('${k}')">الاسم</button>`); });
+      return h; }; }
+  if (!document.getElementById('dmsDirectCss')) { const st = document.createElement('style'); st.id = 'dmsDirectCss';
+    st.textContent = 'body.dms-direct #app{grid-template-columns:1fr!important}body.dms-direct #app>aside,body.dms-direct #main-wrap>header,body.dms-direct #toolBar{display:none!important}' +
+      'body.dms-direct #toolHost{position:fixed;inset:0;z-index:50;background:#fff}#dmsDirectOut{position:fixed;bottom:12px;left:12px;z-index:60;opacity:.85}';
+    document.head.appendChild(st); }
 
   /* ---------- التشغيل ---------- */
   function applyBootstrap(b) {
