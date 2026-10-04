@@ -657,7 +657,7 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
   /* ---------- النسخة الاحتياطية الشاملة لقاعدة البيانات ---------- */
   const BACKUP_TABLES = ['settings', 'departments', 'committees', 'profiles', 'memberships', 'app_versions', 'custom_apps',
     'tasks', 'kpis', 'visits', 'clo', 'files', 'templates', 'initiatives', 'events', 'goals', 'college_events', 'notifs',
-    'activity_log', 'app_storage', 'online_exams', 'online_submissions', 'dept_settings'];
+    'activity_log', 'app_storage', 'online_exams', 'online_submissions', 'dept_settings', 'training_portal', 'training_requests', 'training_status', 'training_approvals'];
   function daysSince(iso) { return iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86400000) : null; }
   window.dmsFullBackup = async function (btn) {
     if (!isAdmin()) { alert('النسخة الشاملة من صلاحية المالك.'); return; }
@@ -711,13 +711,13 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
       <p class="small muted" id="fbStatus" style="margin-top:8px"></p></div></div>`;
   }
   /* ---------- الاستعادة من النسخة الشاملة ---------- */
-  const PK = { memberships: 'user_app_id,committee_id', app_storage: 'app_key,scope,key', app_versions: 'app_key', settings: 'id', dept_settings: 'dept_id' };
+  const PK = { memberships: 'user_app_id,committee_id', app_storage: 'app_key,scope,key', app_versions: 'app_key', settings: 'id', dept_settings: 'dept_id', training_portal: 'id', training_requests: 'key', training_status: 'portal,h', training_approvals: 'key' };
   const GEN_COLS = { tasks: ['title', 'status', 'assignee', 'start_date', 'end_date', 'term'] };
   const RGROUPS = [
     { k: 'org', label: 'الأقسام واللجان والإعدادات وإصدارات الأنظمة ومقررات الأقسام', tables: ['departments', 'committees', 'settings', 'dept_settings', 'app_versions', 'custom_apps'] },
     { k: 'users', label: 'المستخدمون وعضوياتهم', hint: 'يُنشأ المستخدم المفقود بكلمة مرور مؤقتة جديدة، وتُنزَّل لك قائمة بها', tables: ['profiles', 'memberships'] },
     { k: 'work', label: 'أعمال اللجان: المهام والمؤشرات والزيارات والقياس والمبادرات والقوالب والتقويم والخطط والمرفقات', tables: ['tasks', 'kpis', 'visits', 'clo', 'initiatives', 'templates', 'events', 'goals', 'college_events', 'files'] },
-    { k: 'apps', label: 'بيانات الأنظمة الأربعة (التدريب، الجاهزية، الاختبارات، الاستطلاعات)', tables: ['app_storage'] },
+    { k: 'apps', label: 'بيانات الأنظمة (التدريب، الجاهزية، الاختبارات، الاستطلاعات، والأنظمة المضافة) وبوابة طلاب التدريب', tables: ['app_storage', 'training_portal', 'training_requests', 'training_status', 'training_approvals'] },
     { k: 'online', label: 'الاختبارات الإلكترونية ونتائج الطلاب', tables: ['online_exams', 'online_submissions'] },
     { k: 'logs', label: 'سجل الحركات والإشعارات', tables: ['activity_log', 'notifs'] },
   ];
@@ -1511,18 +1511,67 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
     DB.customApps = (b.custom_apps || []).map((r) => Object.assign({}, r.data || {}, { id: r.id }));
     normalize(DB);
   }
+  /* ---------- الفتح السريع: عرض فوري من آخر نسخة محفوظة في الجهاز، ثم التحديث في الخلفية ---------- */
+  const SNAP_KEY = (aid) => 'snap:' + aid;
+  async function saveSnap() {
+    try { if (!ME || !ME.authId || !SNAP_READY) return; const d = Object.assign({}, DB, { log: (DB.log || []).slice(-300) });
+      await IDB.put(SNAP_KEY(ME.authId), JSON.stringify({ at: Date.now(), db: d })); } catch (e) {}
+  }
+  let SNAP_READY = false, snapTimer = null, REFRESHING = false, DIRTY = false;
+  const queueSnap = () => { clearTimeout(snapTimer); snapTimer = setTimeout(saveSnap, 3000); };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) saveSnap(); });
+  window.addEventListener('pagehide', saveSnap);
+  { const _la = loadAll; loadAll = async function () { const r = await _la.apply(this, arguments); SNAP_READY = true; queueSnap(); return r; }; }
+  { const _sv = save; save = function () { _sv.apply(this, arguments); if (REFRESHING) DIRTY = true; queueSnap(); }; }
+  { const _lo = logout; logout = async function () { try { if (ME && ME.authId) await IDB.put(SNAP_KEY(ME.authId), null); } catch (e) {} SNAP_READY = false; return _lo.apply(this, arguments); }; }
+  function freshBar(on) {
+    let b = document.getElementById('dmsFreshBar');
+    if (on && !b) { b = document.createElement('div'); b.id = 'dmsFreshBar'; b.textContent = 'جارٍ تحديث البيانات…';
+      b.style.cssText = 'position:fixed;top:0;inset-inline:0;z-index:70;text-align:center;font-size:13px;padding:3px;background:#FFF7E6;color:#7A5A12'; document.body.appendChild(b); }
+    if (!on && b) b.remove();
+  }
+  async function fastStart(session, ss) {
+    let raw = null; try { raw = await IDB.get(SNAP_KEY(session.user.id)); } catch (e) {}
+    if (!raw) return false;
+    let snap; try { snap = JSON.parse(raw); } catch (e) { return false; }
+    if (!snap || !snap.db || Date.now() - snap.at > 30 * 86400000) return false;
+    DB = snap.db; normalize(DB);
+    const u = DB.users.find((x) => x.authId === session.user.id);
+    if (!u || u.id !== ss.u || u.active === false || !scopeAllowed(u, ss.scope)) { DB = freshDB(); normalize(DB); return false; }
+    ME = u; SCOPE = ss.scope; BASE = snapBase(); SNAP_READY = false;
+    document.title = siteTitle(); freshBar(true); enter();
+    (async () => {
+      try {
+        REFRESHING = true; DIRTY = false;
+        await pushDiff(); const keepId = ME.id, scope0 = SCOPE;
+        let fresh = await loadAll(session.user.id);
+        /* تعديل أثناء التحديث: يُحفظ أولًا ثم يُعاد الجلب حتى لا يختفي من الشاشة */
+        for (let i = 0; i < 3 && DIRTY; i++) { DIRTY = false; clearTimeout(pushTimer); await pushDiff(); fresh = await loadAll(session.user.id); }
+        REFRESHING = false;
+        if (!fresh || fresh.id !== keepId || fresh.active === false || !scopeAllowed(fresh, scope0)) { freshBar(false); alert('تغيّرت صلاحيات حسابك. سجّل الدخول من جديد.'); await logout(); return; }
+        ME = user(keepId) || ME; startRealtime(); scheduleRefresh(); refresh();
+      } catch (e) { console.error(e); setConn('err'); }
+      finally { REFRESHING = false; freshBar(false); }
+    })();
+    return true;
+  }
   boot = async function () {
     DB = freshDB(); normalize(DB);
     const linkBtn = document.querySelector('button[onclick="linkDeviceDlg()"]'); if (linkBtn) linkBtn.remove();
     let hasAdmin = true;
-    try { const { data, error } = await sb.rpc('public_bootstrap'); if (error) throw error; applyBootstrap(data || {}); hasAdmin = !!(data && data.has_admin); }
+    /* الصفحة الأولى فورًا من آخر نسخة محفوظة، ثم تُحدَّث من الخادم */
+    let cachedBoot = null; try { cachedBoot = JSON.parse(localStorage.getItem('dms-boot:' + ((window.DMS_CONFIG || {}).supabaseUrl || '')) || 'null'); } catch (e) {}
+    if (cachedBoot) { try { applyBootstrap(cachedBoot); document.title = siteTitle(); renderLanding(); } catch (e) {} }
+    const bootP = sb.rpc('public_bootstrap').then(({ data, error }) => { if (error) throw error; try { localStorage.setItem('dms-boot:' + ((window.DMS_CONFIG || {}).supabaseUrl || ''), JSON.stringify(data || {})); } catch (e) {} return data || {}; });
+    const ss = readSession();
+    const { data: { session } } = await sb.auth.getSession();
+    if (session && ss && await fastStart(session, ss)) { bootP.catch(() => {}); return; }
+    try { const data = await bootP; DB = freshDB(); normalize(DB); applyBootstrap(data); hasAdmin = !!data.has_admin; }
     catch (e) { $('#lgHint').innerHTML = '<span class="bad">تعذر الاتصال بقاعدة البيانات: ' + esc(e.message || e) + '</span>'; }
     const S = DB.settings;
     document.title = siteTitle();
     renderLanding();
     if (!hasAdmin) $('#lgHint').textContent = 'لم يُنشأ حساب المالك بعد. أنشئه بسكربت create-owner كما في دليل التشغيل.';
-    const ss = readSession();
-    const { data: { session } } = await sb.auth.getSession();
     if (session && ss) {
       try {
         const u = await loadAll(session.user.id);
