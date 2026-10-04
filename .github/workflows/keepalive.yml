@@ -18,8 +18,8 @@ jobs:
       - name: تنبيه قاعدة البيانات
         run: |
           code=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-            "https://vfigtvclyymbumcmegbe.supabase.co/rest/v1/rpc/public_bootstrap" \
-            -H "apikey: sb_publishable_nMjEtLJc8V0H8VxOl6LcWw_WYVLB6-Y" \
+            "https://hkmorkmsbnundfvsmmpt.supabase.co/rest/v1/rpc/public_bootstrap" \
+            -H "apikey: sb_publishable_VHsyfcIBOIUIFGqOE8qMgA_h5a5BpG2" \
             -H "Content-Type: application/json" -d '{}')
           echo "HTTP $code"
           test "$code" = "200"
