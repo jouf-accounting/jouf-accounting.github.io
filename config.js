@@ -1,9 +1,9 @@
-/* إعدادات الاتصال بقاعدة البيانات (مشروع Supabase الخاص بالكلية)
+/* إعدادات الاتصال بقاعدة البيانات (مشروع Supabase الخاص بالكلية — فرانكفورت)
    المفتاح أدناه عام وآمن للنشر؛ الحماية تتم بسياسات الأمان في قاعدة البيانات.
-   لا تضع مفتاح الخدمة (service_role / secret) هنا أبدًا. */
+   لا تضع مفتاح الخدمة (secret / service_role) هنا أبدًا. */
 window.DMS_CONFIG = {
-  supabaseUrl: 'https://vfigtvclyymbumcmegbe.supabase.co',
-  supabaseAnonKey: 'sb_publishable_nMjEtLJc8V0H8VxOl6LcWw_WYVLB6-Y',
+  supabaseUrl: 'https://hkmorkmsbnundfvsmmpt.supabase.co',
+  supabaseAnonKey: 'sb_publishable_VHsyfcIBOIUIFGqOE8qMgA_h5a5BpG2',
   emailDomain: 'dms.local',
-  usersFunction: 'super-handler'
+  usersFunction: 'super-responder'
 };
