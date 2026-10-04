@@ -1444,34 +1444,62 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
     toast('حُذف «' + d.name + '»');
   };
 
-  /* ================= الدخول المباشر للأعضاء إلى نظام اللجنة ================= */
-  /* العضو (غير المالك) الذي يدخل لجنة مرتبطة بنظام «دخول مباشر» يفتح النظام بملء الشاشة، دون القائمة الجانبية وشريط الأدوات. */
-  const isDirect = (k) => { const A = allApps()[k], m = appMeta(k); if (!A || m.disabled) return false; return m.direct != null ? !!m.direct : !!A.custom; };
-  function directAppFor(scope) {
-    if (!ME || isAdmin() || !scope || ['owner', 'head', 'college'].includes(scope)) return null;
-    const k = Object.keys(allApps()).find((x) => isDirect(x) && appComms(x).includes(scope));
-    return k && roleIn(scope) ? k : null;
+  /* ================= الدخول المباشر ================= */
+  /* الموقع كاملًا (القائمة الجانبية وصفحات اللجان وشريط الأدوات) للمالك والإدارة (العميد والوكلاء) ورئيس القسم فقط.
+     رؤساء اللجان وأعضاؤها يدخلون مباشرة إلى برامج لجنتهم بملء الشاشة، وصلاحياتهم داخل كل برنامج. */
+  const fullSite = () => !!ME && (isAdmin() || !!ME.collegeRole || !!ME.headDept);
+  const isDirect = (k) => { const A = allApps()[k], m = appMeta(k); if (!A || m.disabled) return false; return m.direct !== false; };
+  const directApps = (scope) => (!ME || fullSite() || !scope || ['owner', 'head', 'college'].includes(scope) || !roleIn(scope)) ? []
+    : Object.keys(allApps()).filter((k) => isDirect(k) && appComms(k).includes(scope)).sort((x, y) => (allApps()[y].custom ? 1 : 0) - (allApps()[x].custom ? 1 : 0));
+  const directAppFor = (scope) => directApps(scope)[0] || null;
+  function directBar() {
+    let bar = document.getElementById('dmsDirectBar');
+    const apps = directApps(SCOPE), on = document.body.classList.contains('dms-direct');
+    if (!on) { if (bar) bar.remove(); return; }
+    if (!bar) { bar = document.createElement('div'); bar.id = 'dmsDirectBar'; document.body.appendChild(bar); }
+    const cur = (VIEW && VIEW.opts && VIEW.opts.app) || apps[0];
+    const scopes = DB.committees.map((c) => c.id).filter((x) => scopeAllowed(ME, x) && Object.keys(allApps()).some((k) => isDirect(k) && appComms(k).includes(x)));
+    bar.innerHTML = (apps.length > 1 ? apps.map((k) => `<button class="btn sm ${k === cur ? 'primary' : ''}" onclick="go('tool',{app:'${k}'});setTimeout(dmsDirectBar,50)">${esc(allApps()[k].name)}</button>`).join('') : '') +
+      (scopes.length > 1 ? `<select onchange="switchScope(this.value)" title="الانتقال إلى لجنة أخرى">${scopes.map((x) => `<option value="${esc(x)}" ${x === SCOPE ? 'selected' : ''}>${esc(scopeName(x))}</option>`).join('')}</select>` : '') +
+      `<button class="btn sm" onclick="logout()">خروج</button>`;
   }
+  window.dmsDirectBar = directBar;
   function applyDirect() {
-    const k = directAppFor(SCOPE), on = !!k;
-    document.body.classList.toggle('dms-direct', on);
-    let b = document.getElementById('dmsDirectOut');
-    if (on && !b) { b = document.createElement('button'); b.id = 'dmsDirectOut'; b.className = 'btn sm'; b.textContent = 'خروج'; b.onclick = () => logout(); document.body.appendChild(b); }
-    if (!on && b) b.remove();
+    const k = directAppFor(SCOPE);
+    document.body.classList.toggle('dms-direct', !!k);
+    directBar();
     return k;
   }
-  { const _en = enter; enter = function () { _en.apply(this, arguments); const k = applyDirect(); if (k) go('tool', { app: k }); }; }
-  { const _g2 = go; go = function (page, opts) { if (document.body.classList.contains('dms-direct') && page !== 'tool') { const k = directAppFor(SCOPE); if (k) return _g2('tool', { app: k }); } return _g2(page, opts); }; }
-  { const _lo2 = logout; logout = async function () { document.body.classList.remove('dms-direct'); const b = document.getElementById('dmsDirectOut'); if (b) b.remove(); return _lo2.apply(this, arguments); }; }
+  /* فتح النظام مرة واحدة: الطلب الثاني أثناء التحميل ينتظر الأول، وبعده يبقى إطار النظام الحالي وحده ظاهرًا */
+  { const pend = {}, _ot = openTool;
+    openTool = function (a) { if (pend[a]) return pend[a];
+      const p = Promise.resolve(_ot.apply(this, arguments)).finally(() => { delete pend[a];
+        const cur = (VIEW && VIEW.page === 'tool') ? (VIEW.app || (VIEW.opts || {}).app) : null, keep = new Set(Object.values(FRAMES));
+        document.querySelectorAll('#toolFrames iframe').forEach((f) => { if (!keep.has(f)) f.remove(); });
+        Object.entries(FRAMES).forEach(([k, f]) => f.classList.toggle('on', k === cur)); });
+      pend[a] = p; return p; }; }
+  /* فتح واحد فقط للنظام: الانتقال بين اللجان يستدعي الدخول داخليًا، فلا يُفتح النظام مرتين */
+  const curApp = () => (VIEW && VIEW.page === 'tool') ? (VIEW.app || (VIEW.opts || {}).app || null) : null;
+  function openDirect() { const k = applyDirect(); if (!k) return; if (curApp() !== k || !FRAMES[k]) go('tool', { app: k }); directBar(); }
+  { const _en = enter; enter = function () { _en.apply(this, arguments); openDirect(); }; }
+  { const _sw = switchScope; switchScope = function () { _sw.apply(this, arguments); openDirect(); }; }
+  { const _g2 = go; go = function (page, opts) {
+      if (document.body.classList.contains('dms-direct')) { const apps = directApps(SCOPE);
+        if (page !== 'tool' || !apps.includes(opts && opts.app)) { if (apps.length) { if (curApp() === apps[0] && FRAMES[apps[0]]) return; return _g2('tool', { app: apps[0] }); } } }
+      return _g2(page, opts); }; }
+  { const _lo2 = logout; logout = async function () { document.body.classList.remove('dms-direct'); directBar(); return _lo2.apply(this, arguments); }; }
   window.dmsSysDirect = function (k) { const on = !isDirect(k); setMeta(k, { direct: on }); audit(on ? 'تفعيل الدخول المباشر' : 'إيقاف الدخول المباشر', (allApps()[k] || {}).name || k, ''); save(); refresh();
-    toast(on ? 'الأعضاء يدخلون هذا النظام مباشرة بملء الشاشة' : 'يرى الأعضاء صفحة اللجنة كاملة'); };
+    toast(on ? 'أعضاء اللجنة يدخلون هذا النظام مباشرة' : 'يرى أعضاء اللجنة صفحة اللجنة كاملة'); };
   { const _ss2 = setSystems; setSystems = function () { let h = _ss2();
       Object.keys(allApps()).forEach((k) => { h = h.replace(`<button class="btn sm" onclick="dmsSysRename('${k}')">الاسم</button>`,
-        `<button class="btn sm" onclick="dmsSysDirect('${k}')" title="العضو يفتح النظام مباشرة دون صفحة اللجنة">${isDirect(k) ? 'دخول مباشر ✓' : 'دخول مباشر'}</button><button class="btn sm" onclick="dmsSysRename('${k}')">الاسم</button>`); });
+        `<button class="btn sm" onclick="dmsSysDirect('${k}')" title="رؤساء اللجان وأعضاؤها يفتحون النظام مباشرة دون صفحة اللجنة">${isDirect(k) ? 'دخول مباشر ✓' : 'دخول مباشر'}</button><button class="btn sm" onclick="dmsSysRename('${k}')">الاسم</button>`); });
       return h; }; }
   if (!document.getElementById('dmsDirectCss')) { const st = document.createElement('style'); st.id = 'dmsDirectCss';
-    st.textContent = 'body.dms-direct #app{grid-template-columns:1fr!important}body.dms-direct #app>aside,body.dms-direct #main-wrap>header,body.dms-direct #toolBar{display:none!important}' +
-      'body.dms-direct #toolHost{position:fixed;inset:0;z-index:50;background:#fff}#dmsDirectOut{position:fixed;bottom:12px;left:12px;z-index:60;opacity:.85}';
+    st.textContent = 'body.dms-direct #app{grid-template-columns:1fr!important}body.dms-direct #app>aside,body.dms-direct #main-wrap>header{display:none!important}' +
+      'body.dms-direct #toolHost{position:fixed;inset:0;z-index:50;background:#fff}' +
+      /* شريط الأدوات مخفي، ويبقى منه تنبيه تعارض الحفظ فقط عند وجوده */
+      'body.dms-direct #toolBar{padding:0;border:0;min-height:0;gap:0}body.dms-direct #toolBar>*:not(#appNotice){display:none!important}body.dms-direct #appNotice:not(:empty){padding:8px 16px;background:#FFF7E6}' +
+      '#dmsDirectBar{position:fixed;bottom:12px;left:12px;z-index:60;display:flex;gap:6px;align-items:center;flex-wrap:wrap;max-width:70vw;opacity:.92}#dmsDirectBar select{font:inherit;font-size:13px;padding:5px 8px;border-radius:8px}';
     document.head.appendChild(st); }
 
   /* ---------- التشغيل ---------- */
