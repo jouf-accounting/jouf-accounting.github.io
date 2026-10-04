@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>اختيار جهة التدريب</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
+<script src="config.js"></script>
+<style>
+:root{--bg:#F3F6F2;--card:#fff;--ink:#17261D;--soft:#5B6B60;--line:#D8E1DA;--green:#14503C;--green-l:#E4EFE8;--gold:#A9781A;--gold-l:#FBF2DE;--red:#A3321F;--red-l:#FBEAE6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Sakkal Majalla","Segoe UI",Tahoma,sans-serif;font-size:19px;line-height:1.7}
+header{background:var(--green);color:#fff;padding:22px 18px 26px}
+header .in{max-width:760px;margin:0 auto}
+header h1{margin:0;font-size:30px;line-height:1.3}
+header p{margin:4px 0 0;opacity:.88}
+main{max-width:760px;margin:-14px auto 40px;padding:0 14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 18px;margin-bottom:14px}
+h2{font-size:22px;margin:0 0 10px}
+label{display:block;font-weight:700;margin:8px 0 4px}
+input{width:100%;font:inherit;font-size:20px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+input:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+input[dir=ltr]{text-align:right}
+button{font:inherit;font-size:19px;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:#fff;padding:9px 16px;color:var(--ink)}
+button.primary{background:var(--green);border-color:var(--green);color:#fff;font-weight:700}
+button[disabled]{opacity:.55;cursor:not-allowed}
+.row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}.row>div{flex:1;min-width:200px}
+.msg{border-radius:12px;padding:12px 14px;margin:10px 0;border-inline-start:5px solid}
+.msg.ok{background:var(--green-l);border-color:var(--green)}.msg.warn{background:var(--gold-l);border-color:var(--gold)}.msg.err{background:var(--red-l);border-color:var(--red)}.msg.info{background:#EEF2F7;border-color:#5A6E9C}
+.who{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:6px}
+.who div{background:var(--bg);border-radius:10px;padding:8px 10px}.who small{display:block;color:var(--soft);font-size:15px}
+.ags{display:grid;gap:8px;margin-top:8px}
+.ag{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff;text-align:start;width:100%}
+.ag b{flex:1}
+.ag .rem{font-size:16px;white-space:nowrap;padding:2px 10px;border-radius:999px;background:var(--green-l);color:var(--green)}
+.ag.full{background:#F4F4F2;color:#8A8F8B;cursor:not-allowed}.ag.full .rem{background:#E6E6E3;color:#6E7370}
+.ag.sel{border:2px solid var(--green);background:var(--green-l)}
+.ag:not(.full):hover{border-color:var(--green)}
+.hint{color:var(--soft);font-size:16px}
+.hide{display:none}
+.tabs{display:flex;gap:6px;margin:0 0 12px;flex-wrap:wrap}.tabs button{flex:1;min-width:200px;font-weight:700}.tabs button[aria-pressed=true]{background:var(--green);border-color:var(--green);color:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 12px}
+select{width:100%;font:inherit;font-size:19px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+.req{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:6px 0;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+.chip{font-size:15px;padding:2px 10px;border-radius:999px;background:var(--gold-l);color:var(--gold);white-space:nowrap}.chip.ok{background:var(--green-l);color:var(--green)}.chip.bad{background:var(--red-l);color:var(--red)}
+footer{text-align:center;color:var(--soft);font-size:15px;margin:20px 0}
+</style>
+</head>
+<body>
+<header><div class="in"><h1 id="org">اختيار جهة التدريب</h1><p id="term"></p></div></header>
+<main>
+  <div id="boot" class="card">جارٍ التحميل…</div>
+  <nav class="tabs hide" id="tabs" aria-label="نوع الطلب"><button type="button" id="tChoose" aria-pressed="true">اختيار جهة تدريب من القائمة</button><button type="button" id="tAppr" aria-pressed="false">طلب خطاب موافقة من جهة تدريب</button></nav>
+  <section id="appr" class="hide">
+    <div class="card">
+      <h2>طلب خطاب موافقة من جهة تدريب</h2>
+      <p class="hint">إن وجدت جهة تدريب بنفسك، اطلب هنا خطاب الموافقة. تصدره لجنة التدريب بالنموذج الرسمي، وتتابع حالة طلبك في هذه الصفحة.</p>
+      <div class="row"><div><label for="aUid">الرقم الجامعي</label><input id="aUid" inputmode="numeric" dir="ltr" autocomplete="off"></div>
+        <div style="flex:0"><button class="primary" id="aGo">متابعة</button></div></div>
+      <div id="aE1"></div>
+    </div>
+    <div class="card hide" id="aForm">
+      <div id="aWho"></div>
+      <div class="grid" id="aManual">
+        <div><label for="aName">الاسم الرباعي</label><input id="aName"></div>
+        <div><label for="aGender">الشطر</label><select id="aGender"><option>طالب</option><option>طالبة</option></select></div>
+        <div><label for="aMajor">التخصص</label><input id="aMajor"></div>
+        <div><label for="aBranch">الفرع</label><input id="aBranch"></div>
+      </div>
+      <div class="grid">
+        <div style="grid-column:1/-1"><label for="aEntity">اسم جهة التدريب المطلوبة</label><input id="aEntity" placeholder="مثال: مصرف الراجحي – فرع سكاكا"></div>
+        <div><label for="aDept">القسم</label><input id="aDept"></div>
+        <div id="aGpaWrap"><label for="aGpa">المعدل التراكمي</label><input id="aGpa" inputmode="decimal" dir="ltr"></div>
+        <div><label for="aPhone">رقم الجوال</label><input id="aPhone" inputmode="tel" dir="ltr" placeholder="05xxxxxxxx"></div>
+        <div style="grid-column:1/-1"><label for="aNote">ملاحظة للجنة (اختياري)</label><input id="aNote"></div>
+      </div>
+      <div class="row" style="margin-top:12px"><button class="primary" id="aSend">إرسال الطلب</button><button id="aOut">خروج</button></div>
+      <div id="aE2"></div>
+    </div>
+    <div class="card hide" id="aList"></div>
+  </section>
+  <div id="closed" class="card hide"></div>
+  <section id="step1" class="card hide">
+    <h2>الدخول برقمك الجامعي</h2>
+    <p id="pMsg" class="hint"></p>
+    <div class="row"><div><label for="uid">الرقم الجامعي</label><input id="uid" inputmode="numeric" dir="ltr" autocomplete="off"></div>
+      <div style="flex:0"><button class="primary" id="go">متابعة</button></div></div>
+    <div id="e1"></div>
+  </section>
+  <section id="step2" class="hide">
+    <div class="card"><h2>بياناتك</h2><div class="who" id="who"></div>
+      <p class="hint" style="margin:8px 0 0">البيانات من قائمة لجنة التدريب. إن وجدت خطأ فيها فتواصل مع اللجنة قبل الاختيار.</p></div>
+    <div id="state"></div>
+    <div class="card hide" id="choose">
+      <h2>اختر جهة التدريب</h2>
+      <p class="hint">تظهر الجهات المتاحة لتخصصك وشطرك، والمقاعد المتبقية لكل منها. الجهة المكتملة لا يمكن اختيارها.</p>
+      <div class="ags" id="ags"></div>
+      <label for="phone">رقم الجوال (لإبلاغك بالقرار عبر واتساب)</label><input id="phone" inputmode="tel" dir="ltr" placeholder="05xxxxxxxx">
+      <div class="row" style="margin-top:12px"><button class="primary" id="send" disabled>إرسال الطلب</button><button id="out">خروج</button></div>
+      <div id="e2"></div>
+    </div>
+  </section>
+  <footer>لجنة التدريب — جامعة الجوف</footer>
+</main>
+<script>
+(function(){
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const show = (id, on) => $(id).classList.toggle('hide', !on);
+  const box = (cls, html) => `<div class="msg ${cls}">${html}</div>`;
+  const P = new URLSearchParams(location.search).get('p') || 'training|college';
+  const C = window.DMS_CONFIG || {};
+  if (!window.supabase || !C.supabaseUrl) { $('boot').innerHTML = box('err', 'تعذّر الاتصال. تأكد من اتصالك بالإنترنت ثم أعد تحميل الصفحة.'); return; }
+  const sb = supabase.createClient(C.supabaseUrl, C.supabaseAnonKey, { auth: { persistSession: false } });
+  let PUB = null, ME = null, PICK = '', TIMER = null;
+  const ERR = {not_found:'رقمك غير موجود في قائمة طلاب التدريب. تأكد من الرقم، أو تواصل مع لجنة التدريب لإضافتك.', invalid:'اكتب رقمك الجامعي كاملًا.',
+    closed:'التسجيل مغلق حاليًا.', full:'اكتملت مقاعد هذه الجهة لتخصصك قبل لحظات. اختر جهة أخرى.', not_for_you:'هذه الجهة غير متاحة لتخصصك أو شطرك.',
+    no_agency:'الجهة غير موجودة. أعد تحميل الصفحة.', too_fast:'أرسلت طلبًا قبل لحظات. انتظر قليلًا ثم حاول مرة أخرى.', no_portal:'رابط البوابة غير صحيح. اطلب الرابط من لجنة التدريب.'};
+  const uidKey = 'tp-uid:' + P;
+  Object.assign(ERR, {no_entity:'اكتب اسم جهة التدريب.', need_fields:'رقمك غير موجود في قائمة الطلاب، فاكتب اسمك الرباعي وتخصصك.', too_many:'لديك ثلاثة طلبات قيد المراجعة. انتظر قرار اللجنة.'});
+  let AME = null;
+  function setTab(t){ $('tChoose').setAttribute('aria-pressed', t === 'choose'); $('tAppr').setAttribute('aria-pressed', t === 'appr');
+    const choosing = t === 'choose'; show('appr', !choosing); show('step1', choosing && !ME); show('step2', choosing && !!ME); show('closed', false); }
+  async function apprStatus(uid){
+    const { data } = await sb.rpc('tp_appr_status', { p_portal: P, p_uid: uid });
+    const L = Array.isArray(data) ? data : [];
+    const lab = { new: ['قيد المراجعة', ''], issued: ['صدر الخطاب', 'ok'], rej: ['لم يُعتمد', 'bad'] };
+    $('aList').innerHTML = '<h2>طلباتك</h2>' + (L.length ? L.map((r) => { const s = lab[r.status] || lab.new;
+      return `<div class="req"><div><b>${esc(r.entity)}</b><br><span class="hint">${new Date(r.at).toLocaleDateString('ar-SA-u-nu-latn')}${r.status === 'issued' ? ' · صدر الخطاب، راجع لجنة التدريب لاستلامه' : ''}${r.note ? ' · ' + esc(r.note) : ''}</span></div><span class="chip ${s[1]}">${s[0]}</span></div>`; }).join('') : '<p class="hint">لم تقدّم طلبات بعد.</p>');
+    show('aList', true);
+  }
+  async function apprLookup(uid){
+    $('aE1').innerHTML = '';
+    const { data, error } = await sb.rpc('tp_lookup', { p_portal: P, p_uid: uid }); if (error) throw error;
+    const cfg = PUB.appr || {};
+    if (data && data.ok) { AME = { uid, inRoster: true, s: data.student };
+      $('aWho').innerHTML = `<div class="who"><div><small>الاسم</small>${esc(data.student.name)}</div><div><small>الرقم الجامعي</small>${esc(data.student.id)}</div><div><small>التخصص</small>${esc(data.student.program || '')}</div><div><small>الشطر</small>${esc(data.student.gender || '')}</div></div><p class="hint">البيانات من قائمة لجنة التدريب.</p>`;
+      show('aManual', false); }
+    else if (data && data.err === 'not_found' && cfg.outside !== false) { AME = { uid, inRoster: false };
+      $('aWho').innerHTML = `<p class="hint">رقمك غير موجود في قائمة الطلاب، فاكتب بياناتك. ستتحقق منها اللجنة قبل إصدار الخطاب.</p>`; show('aManual', true); }
+    else { $('aE1').innerHTML = box('err', ERR[(data || {}).err] || 'تعذّر التحقق من رقمك.'); return; }
+    show('aGpaWrap', cfg.gpa !== false); $('aDept').value = $('aDept').value || cfg.dept || '';
+    show('aForm', true); try { localStorage.setItem(uidKey, uid); } catch (e) {}
+    await apprStatus(uid);
+  }
+
+  async function loadPub(){ const { data, error } = await sb.rpc('tp_public', { p_portal: P }); if (error) throw error; PUB = data || {}; return PUB; }
+  function header(){
+    $('org').textContent = PUB.org || 'اختيار جهة التدريب'; $('term').textContent = PUB.term || '';
+    $('pMsg').textContent = PUB.msg || ''; document.title = (PUB.org ? PUB.org + ' — ' : '') + 'اختيار جهة التدريب';
+  }
+  function slotFor(ag, st){
+    const trk = st.track === 'dip' ? 'dip' : 'bach', g = st.gender === 'طالبة' ? 'f' : 'm', key = trk === 'dip' ? (st.branch || '') : (st.program || '');
+    const all = (ag.s || []).find((s) => s.p === '*'); if (all) return { c: +all.c || 0, u: +all.u || 0, unlimited: !(+all.c) };
+    const s = (ag.s || []).find((x) => x.p === key && x.g === g); return s ? { c: +s.c || 0, u: +s.u || 0 } : null;
+  }
+  function agenciesFor(st){
+    const trk = st.track === 'dip' ? 'dip' : 'bach';
+    return (PUB.agencies || []).filter((a) => a.t === trk).map((a) => ({ a, s: slotFor(a, st) })).filter((x) => x.s)
+      .map((x) => ({ name: x.a.n, branch: x.a.b || '', rem: x.s.unlimited ? Infinity : x.s.c - x.s.u, cap: x.s.c, unlimited: !!x.s.unlimited }))
+      .sort((x, y) => ((y.rem > 0) - (x.rem > 0)) || x.name.localeCompare(y.name, 'ar'));
+  }
+  /* حالة الطالب: آخر ما كتبته اللجنة، أو حالته في القائمة */
+  function current(r){
+    const st = r.status || null, last = r.last || null, s = r.student || {};
+    if (s.st === 'مقبول' && s.ag && (!st || st.st === 'ok' || !last)) return { st: 'ok', ag: s.ag };
+    if (st && (!last || st.ref === last.key)) return st;
+    if (last && last.decision) return { st: last.decision.st, ag: last.decision.ag || last.agency, r: last.decision.r || '' };
+    if (last) return { st: 'new', ag: last.agency };
+    return null;
+  }
+  function renderState(r){
+    const c = current(r); let html = '', canChoose = true;
+    if (!c) html = box('info', 'لم تختر جهة تدريب بعد. اختر من القائمة أدناه.');
+    else if (c.st === 'ok') { html = box('ok', `<b>تم قبولك في: ${esc(c.ag)}</b><br>ستصدر لجنة التدريب خطاب التدريب. لتغيير الجهة تواصل مع اللجنة.`); canChoose = false; }
+    else if (c.st === 'new') html = box('warn', `<b>طلبك قيد المراجعة:</b> ${esc(c.ag)}<br>يمكنك تغيير اختيارك قبل قرار اللجنة، فيحل الطلب الجديد محل السابق.`);
+    else if (c.st === 'wait') html = box('warn', `<b>قيد الانتظار:</b> ${esc(c.ag)}${c.r ? '<br>' + esc(c.r) : ''}<br><b>يرجى إعادة الاختيار</b> من الجهات المتاحة أدناه.`);
+    else if (c.st === 'rej') html = box('err', `<b>لم يُعتمد طلبك:</b> ${esc(c.ag)}${c.r ? '<br>السبب: ' + esc(c.r) : ''}<br>يمكنك اختيار جهة أخرى.`);
+    $('state').innerHTML = `<div class="card">${html}</div>`;
+    show('choose', canChoose && PUB.open === true);
+    if (canChoose && PUB.open !== true) $('state').innerHTML += `<div class="card">${box('warn', esc(PUB.closedMsg || 'التسجيل مغلق حاليًا.'))}</div>`;
+    if (canChoose) renderAgs();
+  }
+  function renderAgs(){
+    const list = agenciesFor(ME.student);
+    if (!list.length) { $('ags').innerHTML = box('warn', 'لا توجد جهات متاحة لتخصصك وشطرك حاليًا. تابع الصفحة لاحقًا أو تواصل مع اللجنة.'); return; }
+    $('ags').innerHTML = list.map((x) => { const full = x.rem <= 0;
+      return `<button type="button" class="ag ${full ? 'full' : ''} ${PICK === x.name ? 'sel' : ''}" data-n="${esc(x.name)}" ${full ? 'disabled aria-disabled="true"' : ''}>
+        <b>${esc(x.name)}${x.branch ? ` <span class="hint">· ${esc(x.branch)}</span>` : ''}</b><span class="rem">${full ? 'مكتملة' : x.unlimited ? 'متاحة' : `متبقٍ ${x.rem} من ${x.cap}`}</span></button>`; }).join('');
+    $('ags').querySelectorAll('.ag:not(.full)').forEach((b) => b.onclick = () => { PICK = b.dataset.n; renderAgs(); $('send').disabled = false; });
+    if (PICK && !list.some((x) => x.name === PICK && x.rem > 0)) { PICK = ''; $('send').disabled = true; }
+  }
+  async function lookup(uid, quiet){
+    const { data, error } = await sb.rpc('tp_lookup', { p_portal: P, p_uid: uid }); if (error) throw error;
+    if (!data || !data.ok) { if (!quiet) $('e1').innerHTML = box('err', ERR[(data || {}).err] || 'تعذّر التحقق من رقمك.'); return false; }
+    ME = data; const s = data.student;
+    $('who').innerHTML = [['الاسم', s.name], ['الرقم الجامعي', s.id], [s.track === 'dip' ? 'البرنامج' : 'التخصص', s.track === 'dip' ? 'الدبلوم العالي' : s.program], ['الشطر', s.gender], ['الفرع', s.branch]]
+      .filter((x) => x[1]).map((x) => `<div><small>${x[0]}</small>${esc(x[1])}</div>`).join('');
+    try { localStorage.setItem(uidKey, uid); } catch (e) {}
+    show('step1', false); show('step2', true); renderState(data); return true;
+  }
+  async function refresh(){ if (!ME || document.hidden) return; try { await loadPub(); await lookup(ME.student.id, true); } catch (e) {} }
+  async function start(){
+    try { await loadPub(); } catch (e) { $('boot').innerHTML = box('err', 'تعذّر تحميل البيانات: ' + esc(e.message || e)); return; }
+    show('boot', false); header();
+    const apprOpen = !!(PUB.appr && PUB.appr.open), chooseOpen = !!PUB.agencies;
+    if (!chooseOpen && !apprOpen) { $('closed').innerHTML = box('err', ERR.no_portal); show('closed', true); return; }
+    if (apprOpen) { show('tabs', true); $('tChoose').onclick = () => setTab('choose'); $('tAppr').onclick = () => setTab('appr');
+      if (!chooseOpen) $('tChoose').style.display = 'none'; }
+    const wantAppr = apprOpen && (!chooseOpen || new URLSearchParams(location.search).get('m') === 'approval');
+    show('step1', !wantAppr); if (wantAppr) setTab('appr');
+    const saved = (() => { try { return localStorage.getItem(uidKey) || ''; } catch (e) { return ''; } })();
+    if (saved) { $('uid').value = saved; lookup(saved, true).catch(() => {}); }
+    TIMER = setInterval(refresh, 30000); document.addEventListener('visibilitychange', refresh);
+  }
+  $('aGo').onclick = async () => { const v = $('aUid').value.trim(); if (!v) { $('aE1').innerHTML = box('err', ERR.invalid); return; }
+    $('aGo').disabled = true; try { await apprLookup(v); } catch (e) { $('aE1').innerHTML = box('err', 'تعذّر الاتصال: ' + esc(e.message || e)); } finally { $('aGo').disabled = false; } };
+  $('aUid').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('aGo').click(); });
+  $('aOut').onclick = () => { AME = null; show('aForm', false); show('aList', false); $('aUid').value = ''; };
+  $('aSend').onclick = async () => { if (!AME) return; $('aE2').innerHTML = ''; $('aSend').disabled = true;
+    try { const d = { id: AME.uid, entity: $('aEntity').value, dept: $('aDept').value, gpa: $('aGpa').value, phone: $('aPhone').value, note: $('aNote').value,
+        name: $('aName').value, gender: $('aGender').value, major: $('aMajor').value, branch: $('aBranch').value };
+      const { data, error } = await sb.rpc('tp_appr_submit', { p_portal: P, p_data: d }); if (error) throw error;
+      if (!data || !data.ok) { $('aE2').innerHTML = box('err', ERR[(data || {}).err] || 'تعذّر إرسال الطلب.'); return; }
+      $('aEntity').value = ''; $('aNote').value = ''; $('aE2').innerHTML = box('ok', '<b>وصل طلبك إلى لجنة التدريب.</b> تابع حالته في «طلباتك» أدناه.'); await apprStatus(AME.uid);
+    } catch (e) { $('aE2').innerHTML = box('err', 'تعذّر الإرسال: ' + esc(e.message || e)); } finally { $('aSend').disabled = false; } };
+  $('go').onclick = async () => { $('e1').innerHTML = ''; const v = $('uid').value.trim(); if (!v) { $('e1').innerHTML = box('err', ERR.invalid); return; }
+    $('go').disabled = true; try { await lookup(v); } catch (e) { $('e1').innerHTML = box('err', 'تعذّر الاتصال: ' + esc(e.message || e)); } finally { $('go').disabled = false; } };
+  $('uid').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('go').click(); });
+  $('out').onclick = () => { ME = null; PICK = ''; try { localStorage.removeItem(uidKey); } catch (e) {} $('uid').value = ''; show('step2', false); show('step1', true); };
+  $('send').onclick = async () => {
+    if (!PICK) return; $('e2').innerHTML = ''; $('send').disabled = true;
+    try {
+      const { data, error } = await sb.rpc('tp_submit', { p_portal: P, p_uid: ME.student.id, p_agency: PICK, p_phone: $('phone').value.trim() });
+      if (error) throw error;
+      if (!data || !data.ok) { $('e2').innerHTML = box('err', data && data.err === 'accepted' ? `أنت مقبول في «${esc(data.agency)}». لتغيير الجهة تواصل مع اللجنة.` : (ERR[(data || {}).err] || 'تعذّر إرسال الطلب.')); await refresh(); return; }
+      PICK = ''; await refresh(); $('state').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      $('state').insertAdjacentHTML('afterbegin', `<div class="card">${box('ok', '<b>وصل طلبك إلى لجنة التدريب.</b> ستظهر حالته هنا، ويمكنك العودة لهذه الصفحة بالرابط نفسه لمتابعته.')}</div>`);
+    } catch (e) { $('e2').innerHTML = box('err', 'تعذّر الإرسال: ' + esc(e.message || e)); }
+    finally { $('send').disabled = !PICK; }
+  };
+  start();
+})();
+</script>
+</body>
+</html>
