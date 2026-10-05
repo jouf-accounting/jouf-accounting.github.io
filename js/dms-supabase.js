@@ -1459,9 +1459,9 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
     if (!bar) { bar = document.createElement('div'); bar.id = 'dmsDirectBar'; document.body.appendChild(bar); }
     const cur = (VIEW && VIEW.opts && VIEW.opts.app) || apps[0];
     const scopes = DB.committees.map((c) => c.id).filter((x) => scopeAllowed(ME, x) && Object.keys(allApps()).some((k) => isDirect(k) && appComms(k).includes(x)));
-    bar.innerHTML = (apps.length > 1 ? apps.map((k) => `<button class="btn sm ${k === cur ? 'primary' : ''}" onclick="go('tool',{app:'${k}'});setTimeout(dmsDirectBar,50)">${esc(allApps()[k].name)}</button>`).join('') : '') +
-      (scopes.length > 1 ? `<select onchange="switchScope(this.value)" title="الانتقال إلى لجنة أخرى">${scopes.map((x) => `<option value="${esc(x)}" ${x === SCOPE ? 'selected' : ''}>${esc(scopeName(x))}</option>`).join('')}</select>` : '') +
-      `<button class="btn sm" onclick="logout()">خروج</button>`;
+    bar.innerHTML = `<span class="dbLbl">👤 ${esc((ME && ME.name) || '')}</span>` + (apps.length > 1 ? apps.map((k) => `<button class="btn sm ${k === cur ? 'primary' : ''}" onclick="go('tool',{app:'${k}'});setTimeout(dmsDirectBar,50)">${esc(allApps()[k].name)}</button>`).join('') : '') +
+      (scopes.length > 1 ? `<span class="dbLbl">اللجنة:</span><select onchange="switchScope(this.value)" title="الانتقال إلى لجنة أخرى" aria-label="الانتقال إلى لجنة أخرى">${scopes.map((x) => `<option value="${esc(x)}" ${x === SCOPE ? 'selected' : ''}>${esc(scopeName(x))}</option>`).join('')}</select>` : '') +
+      `<button class="btn dbOut" onclick="logout()">⎋ خروج</button>`;
   }
   window.dmsDirectBar = directBar;
   function applyDirect() {
@@ -1499,7 +1499,10 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
       'body.dms-direct #toolHost{position:fixed;inset:0;z-index:50;background:#fff}' +
       /* شريط الأدوات مخفي، ويبقى منه تنبيه تعارض الحفظ فقط عند وجوده */
       'body.dms-direct #toolBar{padding:0;border:0;min-height:0;gap:0}body.dms-direct #toolBar>*:not(#appNotice){display:none!important}body.dms-direct #appNotice:not(:empty){padding:8px 16px;background:#FFF7E6}' +
-      '#dmsDirectBar{position:fixed;bottom:12px;left:12px;z-index:60;display:flex;gap:6px;align-items:center;flex-wrap:wrap;max-width:70vw;opacity:.92}#dmsDirectBar select{font:inherit;font-size:13px;padding:5px 8px;border-radius:8px}';
+      '#dmsDirectBar{position:fixed;bottom:14px;left:14px;z-index:60;display:flex;gap:8px;align-items:center;flex-wrap:wrap;max-width:min(720px,92vw);padding:8px 10px;border-radius:14px;background:#7B4FA0;box-shadow:0 6px 18px rgba(0,0,0,.25)}' +
+      '#dmsDirectBar .btn{font-size:14.5px;padding:8px 14px;border-radius:10px;font-weight:700}#dmsDirectBar .btn:not(.primary):not(.dbOut){background:#fff;color:#4B2C68;border-color:#fff}' +
+      '#dmsDirectBar .btn.primary{background:#F2C14E;border-color:#F2C14E;color:#2b1d00}#dmsDirectBar .dbOut{background:#C62828!important;border-color:#C62828!important;color:#fff!important}' +
+      '#dmsDirectBar .dbLbl{color:#fff;font-weight:700;font-size:13.5px}#dmsDirectBar select{font:inherit;font-size:14.5px;font-weight:700;padding:8px 10px;border-radius:10px;border:0;width:auto;min-width:170px;max-width:260px;color:#4B2C68}';
     document.head.appendChild(st); }
 
   /* ================= دليل أعضاء هيئة التدريس: الإدارة المركزية للحسابات ================= */
@@ -1518,8 +1521,21 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
   window.DMS_DIRECTORY = () => JSON.parse(JSON.stringify(DIR().map((m) => ({ name: m.name, email: m.email || '', phone: m.phone || '', title: m.title || '', dept: m.dept || '', status: m.status || 'active' }))));
   /* هوية المستخدم الحالي للأنظمة (الدخول الموحّد) */
   window.DMS_ME = () => { if (!ME) return null; const m = DIR().find((x) => (ME.email && dMail(x.email) === dMail(ME.email)) || dNameN(x.name) === dNameN(ME.name)) || {};
-    return { name: ME.name, email: dMail(ME.email), phone: m.phone || '', dept: m.dept || '', isAdmin: !!ME.isAdmin, memberships: Object.assign({}, ME.memberships || {}), scope: SCOPE }; };
+    return { name: ME.name, email: dMail(ME.email), phone: m.phone || '', dept: m.dept || '', isAdmin: !!ME.isAdmin, memberships: Object.assign({}, ME.memberships || {}), subRoles: Object.assign({}, (DB.settings.appRoles || {})[dMail(ME.email)] || {}), scope: SCOPE }; };
   const DUI = { q: '', comm: '', dept: '', st: '' };
+  /* أدوار فرعية لبعض البرامج: تُحدَّد من الموقع، ويقرؤها البرنامج */
+  const SUBR = { readiness: [['committee', 'عضو لجنة الجاهزية']] };
+  const subOpts = (cid) => Object.keys(allApps()).filter((k) => appComms(k).includes(cid)).flatMap((k) => SUBR[k] || []);
+  const appRoles = () => { DB.settings.appRoles = DB.settings.appRoles || {}; return DB.settings.appRoles; };
+  const subOf = (email, cid) => ((appRoles()[dMail(email)] || {})[cid]) || '';
+  const roleOpts = (cid) => { const subs = subOpts(cid); return [['', '—'], ['member', subs.length ? 'عضو — دكتور' : 'عضو'], ...subs.map(([v, l]) => ['member:' + v, l]), ['chair', 'رئيس اللجنة'], ['viewer', 'مطّلع (مشاهد)']]; };
+  const roleVal = (acc, cid) => { const r = acc ? ((acc.memberships || {})[cid] || '') : ''; const sb = r === 'member' && acc ? subOf(acc.email, cid) : ''; return sb ? 'member:' + sb : r; };
+  const roleLabel = (email, cid, r) => { const sb = r === 'member' ? subOf(email, cid) : ''; const o = sb && subOpts(cid).find(([v]) => v === sb); return o ? o[1] : ROLE_AR[r]; };
+  function setSub(email, cid, v) { const A = appRoles(), e = dMail(email); A[e] = A[e] || {}; if (v) A[e][cid] = v; else delete A[e][cid]; if (!Object.keys(A[e]).length) delete A[e]; }
+  /* قائمة أعضاء برنامج من الموقع: يقرؤها البرنامج ليحدد مهامهم قبل أول دخول */
+  window.DMS_MEMBERS = (appKey) => { const cs = appComms(appKey); return DB.users.filter((u) => u.active !== false && cs.some((c) => (u.memberships || {})[c])).map((u) => {
+    const rs = cs.map((c) => u.memberships[c]).filter(Boolean), m = DIR().find((x) => dMail(x.email) === dMail(u.email)) || {};
+    return { name: u.name, email: dMail(u.email), phone: m.phone || '', isAdmin: !!u.isAdmin, role: rs.includes('chair') ? 'chair' : rs.includes('member') ? 'member' : 'viewer', sub: cs.map((c) => subOf(u.email, c)).find(Boolean) || '' }; }); };
   const usersFn = async (body) => { const { data, error } = await sb.functions.invoke(CFG.usersFunction || 'admin-users', { body }); if (error || (data && data.error)) throw new Error(await fnErr(error, data)); return data || {}; };
   const welcomeMsg = (m, pw) => `السلام عليكم ${m.name}،\nتمت إضافتكم إلى نظام أعمال اللجان: ${location.origin + location.pathname}\nاسم المستخدم: بريدكم الإلكتروني ${dMail(m.email)}\nكلمة المرور الأولية: ${pw === dInitPw(m.phone) ? 'رقم جوالكم بدون الصفر الأول' : pw}\nسيُطلب منكم تغيير كلمة المرور عند أول دخول.`;
   function overlay(html) { const ov = document.createElement('div'); ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;display:grid;place-items:center;padding:10px'; ov.innerHTML = html; document.body.appendChild(ov); ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); }); return ov; }
@@ -1577,14 +1593,13 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
   /* ملف العضو: حسابه ولجانه وأدواره وحالته */
   window.dmsAccount = function (id) {
     if (!isAdmin()) return; const m = DIR().find((x) => x.id === id); if (!m) return; const a = dAccount(m), st = m.status || 'active';
-    const ROLES = [['', '—'], ['member', 'عضو'], ['chair', 'رئيس اللجنة'], ['viewer', 'مطّلع (مشاهد)']];
     const byDept = {}; DB.committees.forEach((c) => { const k = c.dept ? deptName(c.dept) : 'مستوى الكلية'; (byDept[k] = byDept[k] || []).push(c); });
     const ov = overlay(`<div class="panel" style="width:min(780px,96vw);margin:0;max-height:92vh;overflow:auto"><h3>ملف العضو: ${esc(m.name)}</h3><div class="body">
       <p class="small" style="margin-top:0">${esc(m.title || '')} ${m.dept ? '· قسم ' + esc(m.dept) : ''} · <span dir="ltr">${esc(m.email || 'بلا بريد')}</span> · <span dir="ltr">${esc(m.phone || 'بلا جوال')}</span> · الحالة: <b class="${ST[st][1]}">${ST[st][0]}</b></p>
       ${a ? `<p class="small">الحساب الموحّد: اسم الدخول <b dir="ltr">${esc(a.email)}</b>${a.mustChange ? ' · لم يغيّر كلمة المرور الأولية بعد' : ''}</p>
         <h4>اللجان والبرامج وأدواره فيها</h4><p class="small muted">العضو نفسه يمكن أن يكون رئيسًا في لجنة، وعضوًا في أخرى، ومطّلعًا في ثالثة، بالحساب نفسه.</p>
         <div class="tbl-wrap" style="max-height:340px;overflow:auto"><table class="t"><tr><th>اللجنة</th><th>الأنظمة المرتبطة</th><th>الدور</th></tr>
-        ${Object.entries(byDept).map(([dn, cs]) => `<tr><td colspan="3" class="small" style="background:#f6f6f2"><b>${esc(dn)}</b></td></tr>` + cs.map((c) => { const cur = (a.memberships || {})[c.id] || '', apps = Object.keys(allApps()).filter((k) => appComms(k).includes(c.id)).map((k) => allApps()[k].name);
+        ${Object.entries(byDept).map(([dn, cs]) => `<tr><td colspan="3" class="small" style="background:#f6f6f2"><b>${esc(dn)}</b></td></tr>` + cs.map((c) => { const cur = roleVal(a, c.id), ROLES = roleOpts(c.id), apps = Object.keys(allApps()).filter((k) => appComms(k).includes(c.id)).map((k) => allApps()[k].name);
           return `<tr><td>${esc(c.name)}</td><td class="small muted">${esc(apps.join('، ') || '—')}</td><td><select data-accrole="${c.id}">${ROLES.map(([k, l]) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${l}</option>`).join('')}</select></td></tr>`; }).join('')).join('')}</table></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn primary" id="aSave">حفظ الأدوار</button>
           ${st === 'active' ? '<button class="btn" id="aSusp">⏸ إيقاف مؤقت</button><button class="btn" id="aDis" style="color:#b42318">⛔ إيقاف نهائي</button>' : '<button class="btn primary" id="aAct">▶ إعادة التفعيل</button>'}
@@ -1595,8 +1610,8 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
     const q = (s) => ov.querySelector(s), run = async (fn, okMsg) => { try { await fn(); await reloadUsers(); toast(okMsg); ov.remove(); refresh(); } catch (e) { alert('تعذّر: ' + e.message); } };
     q('#aX').onclick = () => ov.remove();
     if (!a) { if (q('#aNew')) q('#aNew').onclick = () => run(async () => { const pw = await createAccount(m, {}); audit('إنشاء حساب موحّد', m.name, ''); setTimeout(() => credsDlg([{ m, pwd: pw }]), 300); }, 'أُنشئ الحساب'); return; }
-    q('#aSave').onclick = () => run(async () => { const mems = {}; ov.querySelectorAll('select[data-accrole]').forEach((s) => { if (s.value) mems[s.dataset.accrole] = s.value; });
-      await usersFn({ action: 'update', appId: a.id, memberships: mems }); audit('تعديل أدوار عضو', m.name, Object.entries(mems).map(([c, r]) => commName(c) + ':' + ROLE_AR[r]).join('، ')); }, 'حُفظت الأدوار');
+    q('#aSave').onclick = () => run(async () => { const mems = {}; ov.querySelectorAll('select[data-accrole]').forEach((s) => { const [r, sb] = s.value.split(':'); if (r) mems[s.dataset.accrole] = r; setSub(a.email, s.dataset.accrole, r === 'member' ? (sb || '') : ''); });
+      await usersFn({ action: 'update', appId: a.id, memberships: mems }); save(); audit('تعديل أدوار عضو', m.name, Object.entries(mems).map(([c, r]) => commName(c) + ':' + roleLabel(a.email, c, r)).join('، ')); }, 'حُفظت الأدوار');
     const setSt = (ns, label) => run(async () => { await usersFn({ action: 'update', appId: a.id, active: ns === 'active' }); m.status = ns; dirSaveMember(m); audit(label, m.name, ''); }, label);
     if (q('#aSusp')) q('#aSusp').onclick = () => { if (confirm('إيقاف حساب «' + m.name + '» مؤقتًا؟ لن يستطيع الدخول حتى إعادة التفعيل، وتبقى أدواره كما هي.')) setSt('suspended', 'إيقاف حساب مؤقتًا'); };
     if (q('#aDis')) q('#aDis').onclick = () => { if (confirm('إيقاف حساب «' + m.name + '» نهائيًا؟\nيبقى في الدليل بحالة «موقوف نهائيًا»، ولا يُعاد تفعيله إلا بقرار صريح.')) setSt('disabled', 'إيقاف حساب نهائيًا'); };
@@ -1612,15 +1627,16 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
   window.dmsDirApply = async function () {
     if (!isAdmin()) return; const cid = DUI.comm, btn = document.getElementById('dirGo'); if (!cid) return;
     const jobs = []; document.querySelectorAll('select[data-dirrole]').forEach((sel) => { const m = DIR().find((x) => x.id === sel.dataset.dirrole); if (!m) return; const acc = dAccount(m), cur = acc ? ((acc.memberships || {})[cid] || '') : '', role = sel.value;
-      const pw = ((document.querySelector('input[data-dirpw="' + m.id + '"]') || {}).value || '').trim(); if ((!acc && !role) || (acc && role === cur)) return; jobs.push({ m, acc, role, pw }); });
+      const pw = ((document.querySelector('input[data-dirpw="' + m.id + '"]') || {}).value || '').trim(); const curV = acc ? roleVal(acc, cid) : ''; if ((!acc && !role) || (acc && role === curV)) return; jobs.push({ m, acc, role, pw }); });
     if (!jobs.length) { toast('لا توجد تغييرات'); return; }
     const bad = jobs.filter((j) => !j.acc && (!j.m.email || (j.pw && j.pw.length < 8) || (j.m.status && j.m.status !== 'active')));
     if (bad.length) { alert('لا يمكن إنشاء حساب لـ:\n' + bad.map((j) => '• ' + j.m.name + (!j.m.email ? ' (لا يوجد بريد في الدليل)' : j.m.status && j.m.status !== 'active' ? ' (العضو موقوف في الدليل)' : ' (كلمة المرور أقل من 8 أحرف)')).join('\n')); return; }
     if (!confirm('تطبيق ' + jobs.length + ' تغييرًا على «' + commName(cid) + '»؟\n' + jobs.filter((j) => !j.acc).length + ' حساب جديد، و' + jobs.filter((j) => j.acc).length + ' تعديل دور.')) return;
     btn.disabled = true; const creds = [], fails = [];
-    for (const j of jobs) { try {
-        if (j.acc) { const mems = Object.assign({}, j.acc.memberships || {}); if (j.role) mems[cid] = j.role; else delete mems[cid]; await usersFn({ action: 'update', appId: j.acc.id, memberships: mems }); }
-        else { j.pwd = await createAccount(j.m, { [cid]: j.role }, j.pw); creds.push(j); } }
+    for (const j of jobs) { try { const [r0, sb] = String(j.role || '').split(':');
+        if (j.acc) { const mems = Object.assign({}, j.acc.memberships || {}); if (r0) mems[cid] = r0; else delete mems[cid]; await usersFn({ action: 'update', appId: j.acc.id, memberships: mems }); }
+        else { j.pwd = await createAccount(j.m, { [cid]: r0 }, j.pw); creds.push(j); }
+        if (j.m.email) setSub(j.m.email, cid, r0 === 'member' ? (sb || '') : ''); }
       catch (e) { fails.push(j.m.name + ': ' + e.message); } }
     audit('حسابات وأدوار من الدليل', commName(cid), jobs.length - fails.length + ' تغيير' + (fails.length ? '، تعذّر ' + fails.length : '')); save();
     await reloadUsers(); btn.disabled = false; refresh();
@@ -1642,7 +1658,7 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
     const rows = L.filter((m) => (!q || m.name.includes(q) || (m.email || '').includes(q.toLowerCase()) || (m.phone || '').includes(q)) && (!DUI.dept || m.dept === DUI.dept) && (!DUI.st || (m.status || 'active') === DUI.st));
     const noMail = L.filter((m) => !m.email).length, withAcc = L.filter((m) => dAccount(m)).length;
     if (!DUI.comm || !DB.committees.some((c) => c.id === DUI.comm)) DUI.comm = (DB.committees[0] || {}).id || '';
-    const cid = DUI.comm, ROLES = [['', '—'], ['member', 'عضو'], ['chair', 'رئيس اللجنة'], ['viewer', 'مطّلع (مشاهد)']];
+    const cid = DUI.comm, ROLES = roleOpts(DUI.comm || ((DB.committees[0] || {}).id || ''));
     const fDept = `<select onchange="dmsDirF('dept',this.value)"><option value="">كل الأقسام</option>${deptList().map((d) => `<option ${d === DUI.dept ? 'selected' : ''}>${esc(d)}</option>`).join('')}</select>`;
     const fSt = `<select onchange="dmsDirF('st',this.value)"><option value="">كل الحالات</option>${Object.entries(ST).map(([k, v]) => `<option value="${k}" ${k === DUI.st ? 'selected' : ''}>${v[0]}</option>`).join('')}</select>`;
     const pickRows = rows.filter((m) => (m.status || 'active') === 'active' || dAccount(m));
@@ -1656,14 +1672,14 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
       <div class="tbl-wrap" style="max-height:440px;overflow:auto"><table class="t"><tr><th>الاسم</th><th>القسم</th><th>البريد (اسم المستخدم)</th><th>الجوال</th><th>الحالة</th><th>اللجان والأدوار</th><th></th></tr>
       ${rows.map((m) => { const a = dAccount(m), s2 = ST[m.status || 'active'] || ST.active, mm = a ? Object.entries(a.memberships || {}) : [];
         return `<tr><td>${esc(m.name)}<div class="small muted">${esc(m.title || '')}</div></td><td class="small">${esc(m.dept || '—')}</td><td dir="ltr" class="small">${esc(m.email || '—')}</td><td dir="ltr" class="small">${esc(m.phone || '—')}</td>
-          <td class="small"><b class="${s2[1]}">${s2[0]}</b>${a ? '' : '<div class="muted">بلا حساب</div>'}</td><td class="small">${mm.length ? mm.map(([c, r]) => esc(commName(c)) + ' <span class="muted">(' + ROLE_AR[r] + ')</span>').join('<br>') : '—'}</td>
+          <td class="small"><b class="${s2[1]}">${s2[0]}</b>${a ? '' : '<div class="muted">بلا حساب</div>'}</td><td class="small">${mm.length ? mm.map(([c, r]) => esc(commName(c)) + ' <span class="muted">(' + esc(roleLabel(a.email, c, r)) + ')</span>').join('<br>') : '—'}</td>
           <td style="white-space:nowrap"><button class="btn sm primary" onclick="dmsAccount('${m.id}')">الحساب</button> <button class="btn sm" onclick="dmsDirEdit('${m.id}')">تعديل</button> <button class="btn sm" onclick="dmsDirDel('${m.id}')">حذف</button></td></tr>`; }).join('') || '<tr><td colspan="7" class="muted">لا يوجد أعضاء بهذا التصفية. أضف الأعضاء أو استوردهم من Excel.</td></tr>'}</table></div></div></div>
     <div class="panel"><h3>إضافة أعضاء إلى لجنة أو برنامج</h3><div class="body">
       <p class="small muted" style="margin-top:0">اختر اللجنة (ومعها أنظمتها)، وصفِّ بالقسم إن شئت، ثم حدّد دور كل عضو. من ليس له حساب يُنشأ له الحساب الموحّد تلقائيًا، ومن له حساب تُضاف إليه هذه اللجنة وتبقى لجانه الأخرى كما هي.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px"><label class="f" style="margin:0;min-width:260px">اللجنة<select onchange="dmsDirF('comm',this.value)">${DB.committees.map((c) => `<option value="${c.id}" ${c.id === cid ? 'selected' : ''}>${esc(c.name)}${c.dept ? ' — ' + esc(deptName(c.dept)) : ''}</option>`).join('')}</select></label>
         <span class="small">تعبئة الفارغ بـ:</span>${ROLES.slice(1).map(([k, l]) => `<button class="btn sm" onclick="dmsDirBulk('${k}')">${l}</button>`).join('')}<button class="btn sm" onclick="dmsDirBulk('')">مسح الكل</button></div>
       <div class="tbl-wrap" style="max-height:460px;overflow:auto"><table class="t"><tr><th>العضو</th><th>القسم</th><th>البريد</th><th>الحساب</th><th>الدور في «${esc(commName(cid))}»</th><th>كلمة المرور الأولية</th></tr>
-      ${pickRows.map((m) => { const a = dAccount(m), cur = a ? ((a.memberships || {})[cid] || '') : '', ip = dInitPw(m.phone);
+      ${pickRows.map((m) => { const a = dAccount(m), cur = roleVal(a, cid), ip = dInitPw(m.phone);
         return `<tr><td>${esc(m.name)}</td><td class="small">${esc(m.dept || '')}</td><td dir="ltr" class="small">${esc(m.email || '—')}</td><td class="small">${a ? '<span class="good">موجود</span>' : m.email ? 'يُنشأ' : '<span class="bad">بلا بريد</span>'}</td>
           <td><select data-dirrole="${m.id}">${ROLES.map(([k, l]) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${l}</option>`).join('')}</select></td>
           <td>${a ? '<span class="small muted">—</span>' : `<input data-dirpw="${m.id}" dir="ltr" placeholder="${ip ? 'الجوال: ' + ip : 'تلقائية'}" style="width:150px" ${m.email ? '' : 'disabled'}>`}</td></tr>`; }).join('')}</table></div>
