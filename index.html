@@ -2000,7 +2000,7 @@ function pgOHome(){
    ['plan','خطة التشغيل السنوية',`${DB.goals.length} أهداف`,"go('plan')"],
    ['calendar','التقويم الموحد','كل اللجان',"go('calendar')"]];
   return `<div class="chead"><div class="stripe" style="background:#1C2B27"></div><div><h2>الإعدادات العامة</h2><div class="muted">مساحة المالك لإدارة الصلاحيات واللجان والأنظمة.</div></div></div>
-   ${surveyHeroFor(null)}<div class="tiles-s">${t.map(x=>bigTile('#1C2B27',x[0],x[1],x[2],x[3])).join('')}</div>
+   <div class="tiles-s">${t.map(x=>bigTile('#1C2B27',x[0],x[1],x[2],x[3])).join('')}</div>
    ${ownerDeptSection()}<h3 class="sec-h">إعدادات كل لجنة</h3><div class="tiles-s">${DB.committees.map(c=>bigTile(c.hex,commOpt(c.id).icon,c.name,`${membersOf(c.id).length} عضو · ${systems().filter(x=>(x.committees||[]).includes(c.id)).length} أنظمة`,`go('csettings',{cid:'${c.id}'})`)).join('')}</div>`;
 }
 function pgCComm(){return `<div class="filters"><span class="small muted" style="flex:1">اختر لجنة لضبط أعضائها وأنظمتها وخياراتها.</span><button class="btn primary" onclick="addCommittee()">إضافة لجنة</button></div><div class="tiles-s">${DB.committees.map(c=>bigTile(c.hex,commOpt(c.id).icon,c.name,`${membersOf(c.id).length} عضو`,`go('csettings',{cid:'${c.id}'})`)).join('')}</div>`}
