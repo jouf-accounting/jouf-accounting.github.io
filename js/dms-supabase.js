@@ -1502,6 +1502,175 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
       '#dmsDirectBar{position:fixed;bottom:12px;left:12px;z-index:60;display:flex;gap:6px;align-items:center;flex-wrap:wrap;max-width:70vw;opacity:.92}#dmsDirectBar select{font:inherit;font-size:13px;padding:5px 8px;border-radius:8px}';
     document.head.appendChild(st); }
 
+  /* ================= دليل أعضاء هيئة التدريس: الإدارة المركزية للحسابات ================= */
+  /* الدليل هو المصدر الرئيسي لبيانات الأعضاء. منه تُنشأ الحسابات الموحّدة (اسم الدخول = البريد، وكلمة المرور الأولية = الجوال دون الصفر)،
+     وتُوزّع الأدوار في اللجان والبرامج، وتقرؤه الأنظمة عبر window.DMS_DIRECTORY(). */
+  const DIR = () => { DB.settings.directory = Array.isArray(DB.settings.directory) ? DB.settings.directory : []; return DB.settings.directory; };
+  const dNameN = (s) => String(s || '').replace(/[إأآا]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/^\s*(د|أ\.?\s*د)\s*\.\s*/, '').replace(/\s+/g, ' ').trim();
+  const dMail = (e) => String(e || '').trim().toLowerCase();
+  const dDigits = (p) => String(p || '').replace(/[٠-٩]/g, (c) => '٠١٢٣٤٥٦٧٨٩'.indexOf(c)).replace(/[^\d]/g, '');
+  const dPhone = (p) => { let d = dDigits(p); if (d.startsWith('00')) d = d.slice(2); if (d.startsWith('05') && d.length === 10) d = '966' + d.slice(1); else if (d.startsWith('5') && d.length === 9) d = '966' + d; return d; };
+  /* كلمة المرور الأولية: رقم الجوال دون الصفر الأول (05XXXXXXXX ← 5XXXXXXXX) */
+  const dInitPw = (p) => { let d = dDigits(p); if (d.startsWith('00966')) d = d.slice(5); else if (d.startsWith('966')) d = d.slice(3); d = d.replace(/^0+/, ''); return d.length >= 8 ? d : ''; };
+  const ST = { active: ['فعال', 'good'], suspended: ['موقوف مؤقتًا', ''], disabled: ['موقوف نهائيًا', 'bad'] };
+  const dAccount = (m) => DB.users.find((u) => (m.email && dMail(u.email) === dMail(m.email)) || (m.name && dNameN(u.name) === dNameN(m.name))) || null;
+  const deptList = () => [...new Set([...(DB.departments || []).map((d) => String(d.name || '').replace(/^قسم\s+/, '')), ...DIR().map((m) => m.dept).filter(Boolean)])].filter(Boolean).sort((a, b) => a.localeCompare(b, 'ar'));
+  window.DMS_DIRECTORY = () => JSON.parse(JSON.stringify(DIR().map((m) => ({ name: m.name, email: m.email || '', phone: m.phone || '', title: m.title || '', dept: m.dept || '', status: m.status || 'active' }))));
+  /* هوية المستخدم الحالي للأنظمة (الدخول الموحّد) */
+  window.DMS_ME = () => { if (!ME) return null; const m = DIR().find((x) => (ME.email && dMail(x.email) === dMail(ME.email)) || dNameN(x.name) === dNameN(ME.name)) || {};
+    return { name: ME.name, email: dMail(ME.email), phone: m.phone || '', dept: m.dept || '', isAdmin: !!ME.isAdmin, memberships: Object.assign({}, ME.memberships || {}), scope: SCOPE }; };
+  const DUI = { q: '', comm: '', dept: '', st: '' };
+  const usersFn = async (body) => { const { data, error } = await sb.functions.invoke(CFG.usersFunction || 'admin-users', { body }); if (error || (data && data.error)) throw new Error(await fnErr(error, data)); return data || {}; };
+  const welcomeMsg = (m, pw) => `السلام عليكم ${m.name}،\nتمت إضافتكم إلى نظام أعمال اللجان: ${location.origin + location.pathname}\nاسم المستخدم: بريدكم الإلكتروني ${dMail(m.email)}\nكلمة المرور الأولية: ${pw === dInitPw(m.phone) ? 'رقم جوالكم بدون الصفر الأول' : pw}\nسيُطلب منكم تغيير كلمة المرور عند أول دخول.`;
+  function overlay(html) { const ov = document.createElement('div'); ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;display:grid;place-items:center;padding:10px'; ov.innerHTML = html; document.body.appendChild(ov); ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); }); return ov; }
+  function dirSaveMember(m) { const L = DIR(), i = L.findIndex((x) => x.id === m.id); if (i >= 0) L[i] = m; else L.push(m); save(); }
+  window.dmsDirEdit = function (id) {
+    if (!isAdmin()) return; const L = DIR(), m = Object.assign({ id: 'f' + Date.now().toString(36), name: '', email: '', phone: '', title: '', dept: '', status: 'active' }, L.find((x) => x.id === id) || {});
+    const ov = overlay(`<div class="panel" style="width:min(580px,96vw);margin:0"><h3>${id ? 'تعديل بيانات عضو' : 'إضافة عضو إلى الدليل'}</h3><div class="body formgrid">
+      <label class="f">الاسم الكامل<input id="dN" value="${esc(m.name)}"></label><label class="f">المسمى (أستاذ، أستاذ مشارك…)<input id="dT" value="${esc(m.title || '')}"></label>
+      <label class="f">البريد الإلكتروني (اسم المستخدم)<input id="dE" dir="ltr" value="${esc(m.email)}"></label><label class="f">الجوال<input id="dP" dir="ltr" value="${esc(m.phone)}" placeholder="05XXXXXXXX"></label>
+      <label class="f">القسم الأكاديمي<input id="dD" list="dDL" value="${esc(m.dept || '')}" placeholder="المحاسبة، إدارة التموين…"><datalist id="dDL">${deptList().map((d) => `<option value="${esc(d)}">`).join('')}</datalist></label>
+      <p class="small muted" style="grid-column:1/-1;margin:0">تعديل الاسم أو الجوال أو البريد أو القسم هنا يُحدّث بيانات العضو في كل البرامج المرتبطة بالدليل.</p>
+      <div style="grid-column:1/-1;display:flex;gap:8px"><button class="btn primary" id="dOk">حفظ</button><button class="btn" id="dNo">إلغاء</button></div></div></div>`);
+    ov.querySelector('#dNo').onclick = () => ov.remove();
+    ov.querySelector('#dOk').onclick = async () => { const v = (k) => ov.querySelector(k).value.trim();
+      if (!v('#dN')) { toast('اكتب الاسم'); return; } const e = dMail(v('#dE')); if (e && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) { toast('البريد غير صحيح'); return; }
+      if (e && DIR().some((x) => x.id !== m.id && dMail(x.email) === e)) { toast('البريد مسجّل لعضو آخر'); return; }
+      const acc = dAccount(m), oldName = m.name; Object.assign(m, { name: v('#dN'), title: v('#dT'), email: e, phone: v('#dP'), dept: v('#dD') }); dirSaveMember(m);
+      if (acc && (acc.name !== m.name || (acc.title || '') !== m.title)) { try { await usersFn({ action: 'update', appId: acc.id, name: m.name, title: m.title }); await reloadUsers(); } catch (x) { toast('حُفظ الدليل، وتعذّر تحديث اسم الحساب: ' + x.message); } }
+      audit(id ? 'تعديل عضو في الدليل' : 'إضافة عضو إلى الدليل', m.name, oldName && oldName !== m.name ? 'كان: ' + oldName : ''); ov.remove(); refresh(); };
+  };
+  window.dmsDirDel = function (id) { if (!isAdmin()) return; const m = DIR().find((x) => x.id === id); if (!m) return;
+    if (dAccount(m)) { alert('لهذا العضو حساب في الموقع. احذف الحساب أولًا من «الحساب»، أو أوقفه، ثم احذفه من الدليل.'); return; }
+    if (!confirm('حذف «' + m.name + '» من الدليل؟')) return; DB.settings.directory = DIR().filter((x) => x.id !== id); save(); audit('حذف عضو من الدليل', m.name, ''); refresh(); };
+  function dirMerge(rows, label) {
+    let add = 0, upd = 0; rows.forEach((r) => { if (!r.name && !r.email) return; const L = DIR(), e = dMail(r.email);
+      const ex = L.find((x) => (e && dMail(x.email) === e) || (r.name && dNameN(x.name) === dNameN(r.name)));
+      if (ex) { ['name', 'email', 'phone', 'title', 'dept'].forEach((k) => { if (r[k]) ex[k] = k === 'email' ? dMail(r[k]) : r[k]; }); upd++; }
+      else { L.push({ id: 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: r.name || '', email: e, phone: r.phone || '', title: r.title || '', dept: r.dept || '', status: 'active' }); add++; } });
+    save(); audit(label, add + ' جديد، ' + upd + ' تحديث', ''); toast('أُضيف ' + add + ' وحُدّث ' + upd); refresh();
+  }
+  function dirParse(rows) {
+    rows = rows.map((r) => r.map((c) => String(c == null ? '' : c).trim())).filter((r) => r.some(Boolean)); if (!rows.length) return [];
+    const head = rows[0].some((c) => /اسم|name|بريد|mail|جوال|phone/i.test(c)) && !rows[0].some((c) => /@/.test(c));
+    let iN = -1, iE = -1, iP = -1, iT = -1, iD = -1;
+    if (head) { const H = rows[0]; iN = H.findIndex((h) => /الاسم|اسم العضو|^name/i.test(h)); iE = H.findIndex((h) => /بريد|ايميل|إيميل|mail/i.test(h)); iP = H.findIndex((h) => /جوال|هاتف|موبايل|phone|mobile/i.test(h));
+      iT = H.findIndex((h) => /المسمى|الرتبة|الدرجة|title/i.test(h)); iD = H.findIndex((h) => /القسم|dept/i.test(h)); rows = rows.slice(1); }
+    return rows.map((r) => { const email = iE >= 0 ? r[iE] : (r.find((c) => /@/.test(c)) || ''), phone = iP >= 0 ? r[iP] : (r.find((c) => /^[+\d٠-٩][\d٠-٩\s-]{6,}$/.test(c)) || '');
+      const name = iN >= 0 ? r[iN] : (r.filter((c) => c && c !== email && c !== phone && /[\u0621-\u064A]/.test(c)).sort((a, b) => b.length - a.length)[0] || '');
+      return { name, email, phone: phone.replace(/\s+/g, ''), title: iT >= 0 ? r[iT] : '', dept: iD >= 0 ? r[iD] : '' }; }).filter((x) => x.name || x.email);
+  }
+  window.dmsDirImport = async function (f) { if (!f || !isAdmin()) return; try { await ensureXLSX(); const wb = XLSX.read(new Uint8Array(await f.arrayBuffer()), { type: 'array' });
+      const rows = dirParse(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' })); if (!rows.length) { toast('لم أجد أسماء في الملف'); return; } dirMerge(rows, 'استيراد الدليل من Excel'); }
+    catch (e) { toast('تعذرت قراءة الملف'); } };
+  window.dmsDirPaste = function () { const t = document.getElementById('dirPaste'); if (!t || !t.value.trim()) return; const rows = dirParse(t.value.split(/\r?\n/).map((l) => l.split(/\t|;/))); if (!rows.length) { toast('الصق جدولًا فيه الأسماء'); return; } dirMerge(rows, 'لصق الدليل من Excel'); };
+  window.dmsDirExport = async function () { await exportXlsx('دليل_أعضاء_هيئة_التدريس_' + today(), [['الدليل', [['الاسم', 'المسمى', 'القسم', 'البريد الإلكتروني', 'الجوال', 'الحالة', 'اسم الدخول', 'اللجان والأدوار']].concat(DIR().map((m) => { const a = dAccount(m);
+      return [m.name, m.title || '', m.dept || '', m.email || '', m.phone || '', (ST[m.status || 'active'] || ST.active)[0], a ? a.email : '', a ? Object.entries(a.memberships || {}).map(([c, r]) => commName(c) + ' (' + ROLE_AR[r] + ')').join('، ') : '']; }))]]); };
+  /* إنشاء حساب موحّد لعضو */
+  function slugUser(email) { let b = dMail(email).split('@')[0].replace(/[^a-z0-9._-]/g, '.').replace(/^[._-]+|[._-]+$/g, '') || 'user'; if (b.length < 3) b = (b + '000').slice(0, 3);
+    const used = new Set(DB.users.map((u) => u.username.toLowerCase())); let u = b, i = 2; while (used.has(u)) u = b + (i++); return u; }
+  async function createAccount(m, mems, pw) {
+    const pwd = pw || dInitPw(m.phone) || tmpPass();
+    const data = await usersFn({ action: 'create', username: slugUser(m.email), email: dMail(m.email), name: m.name, title: m.title || '', password: pwd, memberships: mems || {} });
+    DB.users.push({ id: data.appId, username: slugUser(m.email), email: dMail(m.email), name: m.name, memberships: mems || {} }); return pwd;
+  }
+  /* ملف العضو: حسابه ولجانه وأدواره وحالته */
+  window.dmsAccount = function (id) {
+    if (!isAdmin()) return; const m = DIR().find((x) => x.id === id); if (!m) return; const a = dAccount(m), st = m.status || 'active';
+    const ROLES = [['', '—'], ['member', 'عضو'], ['chair', 'رئيس اللجنة'], ['viewer', 'مطّلع (مشاهد)']];
+    const byDept = {}; DB.committees.forEach((c) => { const k = c.dept ? deptName(c.dept) : 'مستوى الكلية'; (byDept[k] = byDept[k] || []).push(c); });
+    const ov = overlay(`<div class="panel" style="width:min(780px,96vw);margin:0;max-height:92vh;overflow:auto"><h3>ملف العضو: ${esc(m.name)}</h3><div class="body">
+      <p class="small" style="margin-top:0">${esc(m.title || '')} ${m.dept ? '· قسم ' + esc(m.dept) : ''} · <span dir="ltr">${esc(m.email || 'بلا بريد')}</span> · <span dir="ltr">${esc(m.phone || 'بلا جوال')}</span> · الحالة: <b class="${ST[st][1]}">${ST[st][0]}</b></p>
+      ${a ? `<p class="small">الحساب الموحّد: اسم الدخول <b dir="ltr">${esc(a.email)}</b>${a.mustChange ? ' · لم يغيّر كلمة المرور الأولية بعد' : ''}</p>
+        <h4>اللجان والبرامج وأدواره فيها</h4><p class="small muted">العضو نفسه يمكن أن يكون رئيسًا في لجنة، وعضوًا في أخرى، ومطّلعًا في ثالثة، بالحساب نفسه.</p>
+        <div class="tbl-wrap" style="max-height:340px;overflow:auto"><table class="t"><tr><th>اللجنة</th><th>الأنظمة المرتبطة</th><th>الدور</th></tr>
+        ${Object.entries(byDept).map(([dn, cs]) => `<tr><td colspan="3" class="small" style="background:#f6f6f2"><b>${esc(dn)}</b></td></tr>` + cs.map((c) => { const cur = (a.memberships || {})[c.id] || '', apps = Object.keys(allApps()).filter((k) => appComms(k).includes(c.id)).map((k) => allApps()[k].name);
+          return `<tr><td>${esc(c.name)}</td><td class="small muted">${esc(apps.join('، ') || '—')}</td><td><select data-accrole="${c.id}">${ROLES.map(([k, l]) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${l}</option>`).join('')}</select></td></tr>`; }).join('')).join('')}</table></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn primary" id="aSave">حفظ الأدوار</button>
+          ${st === 'active' ? '<button class="btn" id="aSusp">⏸ إيقاف مؤقت</button><button class="btn" id="aDis" style="color:#b42318">⛔ إيقاف نهائي</button>' : '<button class="btn primary" id="aAct">▶ إعادة التفعيل</button>'}
+          <button class="btn" id="aPw">🔑 إعادة كلمة المرور إلى رقم الجوال</button><button class="btn" id="aDel" style="color:#b42318">🗑 حذف الحساب</button></div>`
+      : `<p>${m.email ? 'لا يوجد له حساب بعد. يُنشأ حساب موحّد باسم الدخول <b dir="ltr">' + esc(dMail(m.email)) + '</b>، وكلمة المرور الأولية ' + (dInitPw(m.phone) ? 'رقم جواله بدون الصفر الأول' : 'تلقائية (لا يوجد جوال صالح)') + '.' : '<span class="bad">أضف بريده في الدليل أولًا: البريد هو اسم المستخدم.</span>'}</p>
+        ${m.email ? '<button class="btn primary" id="aNew">إنشاء الحساب الموحّد</button>' : ''}`}
+      <div style="margin-top:12px"><button class="btn" id="aX">إغلاق</button></div></div></div>`);
+    const q = (s) => ov.querySelector(s), run = async (fn, okMsg) => { try { await fn(); await reloadUsers(); toast(okMsg); ov.remove(); refresh(); } catch (e) { alert('تعذّر: ' + e.message); } };
+    q('#aX').onclick = () => ov.remove();
+    if (!a) { if (q('#aNew')) q('#aNew').onclick = () => run(async () => { const pw = await createAccount(m, {}); audit('إنشاء حساب موحّد', m.name, ''); setTimeout(() => credsDlg([{ m, pwd: pw }]), 300); }, 'أُنشئ الحساب'); return; }
+    q('#aSave').onclick = () => run(async () => { const mems = {}; ov.querySelectorAll('select[data-accrole]').forEach((s) => { if (s.value) mems[s.dataset.accrole] = s.value; });
+      await usersFn({ action: 'update', appId: a.id, memberships: mems }); audit('تعديل أدوار عضو', m.name, Object.entries(mems).map(([c, r]) => commName(c) + ':' + ROLE_AR[r]).join('، ')); }, 'حُفظت الأدوار');
+    const setSt = (ns, label) => run(async () => { await usersFn({ action: 'update', appId: a.id, active: ns === 'active' }); m.status = ns; dirSaveMember(m); audit(label, m.name, ''); }, label);
+    if (q('#aSusp')) q('#aSusp').onclick = () => { if (confirm('إيقاف حساب «' + m.name + '» مؤقتًا؟ لن يستطيع الدخول حتى إعادة التفعيل، وتبقى أدواره كما هي.')) setSt('suspended', 'إيقاف حساب مؤقتًا'); };
+    if (q('#aDis')) q('#aDis').onclick = () => { if (confirm('إيقاف حساب «' + m.name + '» نهائيًا؟\nيبقى في الدليل بحالة «موقوف نهائيًا»، ولا يُعاد تفعيله إلا بقرار صريح.')) setSt('disabled', 'إيقاف حساب نهائيًا'); };
+    if (q('#aAct')) q('#aAct').onclick = () => { if (st === 'disabled' && !confirm('الحساب موقوف نهائيًا. هل تريد إعادة تفعيله فعلًا؟')) return; setSt('active', 'إعادة تفعيل حساب'); };
+    q('#aPw').onclick = () => { const pw = dInitPw(m.phone); if (!pw) { alert('لا يوجد في الدليل رقم جوال صالح لهذا العضو.'); return; }
+      if (!confirm('إعادة كلمة مرور «' + m.name + '» إلى رقم جواله بدون الصفر الأول؟\nسيُطلب منه تغييرها عند الدخول.')) return;
+      run(async () => { await usersFn({ action: 'update', appId: a.id, password: pw }); audit('إعادة كلمة المرور إلى رقم الجوال', m.name, ''); setTimeout(() => credsDlg([{ m, pwd: pw }]), 300); }, 'أُعيدت كلمة المرور'); };
+    q('#aDel').onclick = () => { const t = prompt('حذف حساب «' + m.name + '» نهائيًا من الموقع؟ تُحذف عضوياته كلها، ويبقى في الدليل.\nللتأكيد اكتب: حذف'); if (!t || t.trim() !== 'حذف') return;
+      run(async () => { await usersFn({ action: 'delete', appId: a.id }); audit('حذف حساب', m.name, ''); }, 'حُذف الحساب'); };
+  };
+  /* الحسابات والأدوار لعدة أعضاء في لجنة واحدة */
+  window.dmsDirBulk = function (role) { document.querySelectorAll('select[data-dirrole]').forEach((s) => { if (role === '' || !s.value) s.value = role; }); };
+  window.dmsDirApply = async function () {
+    if (!isAdmin()) return; const cid = DUI.comm, btn = document.getElementById('dirGo'); if (!cid) return;
+    const jobs = []; document.querySelectorAll('select[data-dirrole]').forEach((sel) => { const m = DIR().find((x) => x.id === sel.dataset.dirrole); if (!m) return; const acc = dAccount(m), cur = acc ? ((acc.memberships || {})[cid] || '') : '', role = sel.value;
+      const pw = ((document.querySelector('input[data-dirpw="' + m.id + '"]') || {}).value || '').trim(); if ((!acc && !role) || (acc && role === cur)) return; jobs.push({ m, acc, role, pw }); });
+    if (!jobs.length) { toast('لا توجد تغييرات'); return; }
+    const bad = jobs.filter((j) => !j.acc && (!j.m.email || (j.pw && j.pw.length < 8) || (j.m.status && j.m.status !== 'active')));
+    if (bad.length) { alert('لا يمكن إنشاء حساب لـ:\n' + bad.map((j) => '• ' + j.m.name + (!j.m.email ? ' (لا يوجد بريد في الدليل)' : j.m.status && j.m.status !== 'active' ? ' (العضو موقوف في الدليل)' : ' (كلمة المرور أقل من 8 أحرف)')).join('\n')); return; }
+    if (!confirm('تطبيق ' + jobs.length + ' تغييرًا على «' + commName(cid) + '»؟\n' + jobs.filter((j) => !j.acc).length + ' حساب جديد، و' + jobs.filter((j) => j.acc).length + ' تعديل دور.')) return;
+    btn.disabled = true; const creds = [], fails = [];
+    for (const j of jobs) { try {
+        if (j.acc) { const mems = Object.assign({}, j.acc.memberships || {}); if (j.role) mems[cid] = j.role; else delete mems[cid]; await usersFn({ action: 'update', appId: j.acc.id, memberships: mems }); }
+        else { j.pwd = await createAccount(j.m, { [cid]: j.role }, j.pw); creds.push(j); } }
+      catch (e) { fails.push(j.m.name + ': ' + e.message); } }
+    audit('حسابات وأدوار من الدليل', commName(cid), jobs.length - fails.length + ' تغيير' + (fails.length ? '، تعذّر ' + fails.length : '')); save();
+    await reloadUsers(); btn.disabled = false; refresh();
+    if (fails.length) alert('تعذّر:\n' + fails.join('\n'));
+    if (creds.length) credsDlg(creds); else toast('طُبّقت التغييرات');
+  };
+  function credsDlg(list) {
+    const ov = overlay(`<div class="panel" style="width:min(780px,96vw);margin:0;max-height:90vh;overflow:auto"><h3>بيانات الدخول (${list.length})</h3><div class="body">
+      <p class="small">اسم المستخدم هو البريد، وكلمة المرور الأولية رقم الجوال بدون الصفر الأول. أرسلها لكل عضو، وسيُطلب منه تغييرها عند أول دخول.</p>
+      <div class="tbl-wrap"><table class="t"><tr><th>الاسم</th><th>اسم المستخدم</th><th>كلمة المرور الأولية</th><th></th></tr>${list.map((j) => { const ph = dPhone(j.m.phone);
+        return `<tr><td>${esc(j.m.name)}</td><td dir="ltr">${esc(dMail(j.m.email))}</td><td dir="ltr"><b>${esc(j.pwd)}</b></td><td style="white-space:nowrap">${ph ? `<a class="btn sm primary" target="_blank" rel="noopener" href="https://wa.me/${ph}?text=${encodeURIComponent(welcomeMsg(j.m, j.pwd))}">واتساب</a>` : ''} <a class="btn sm" href="mailto:${encodeURIComponent(dMail(j.m.email))}?subject=${encodeURIComponent('تمت إضافتكم إلى نظام أعمال اللجان')}&body=${encodeURIComponent(welcomeMsg(j.m, j.pwd))}">بريد</a></td></tr>`; }).join('')}</table></div>
+      <div style="display:flex;gap:8px;margin-top:10px"><button class="btn" id="dcX">⬇️ ملف Excel</button><button class="btn primary" id="dcC">تم</button></div></div></div>`);
+    ov.querySelector('#dcC').onclick = () => ov.remove();
+    ov.querySelector('#dcX').onclick = () => exportXlsx('بيانات_الدخول_' + today(), [['بيانات الدخول', [['الاسم', 'اسم المستخدم (البريد)', 'كلمة المرور الأولية', 'الجوال']].concat(list.map((j) => [j.m.name, dMail(j.m.email), j.pwd, j.m.phone || '']))]]);
+  }
+  window.setDirectory = function () {
+    if (!isAdmin()) return '<div class="panel"><div class="body">الدليل من صلاحية المالك.</div></div>';
+    const L = DIR().slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'ar')), q = DUI.q.trim();
+    const rows = L.filter((m) => (!q || m.name.includes(q) || (m.email || '').includes(q.toLowerCase()) || (m.phone || '').includes(q)) && (!DUI.dept || m.dept === DUI.dept) && (!DUI.st || (m.status || 'active') === DUI.st));
+    const noMail = L.filter((m) => !m.email).length, withAcc = L.filter((m) => dAccount(m)).length;
+    if (!DUI.comm || !DB.committees.some((c) => c.id === DUI.comm)) DUI.comm = (DB.committees[0] || {}).id || '';
+    const cid = DUI.comm, ROLES = [['', '—'], ['member', 'عضو'], ['chair', 'رئيس اللجنة'], ['viewer', 'مطّلع (مشاهد)']];
+    const fDept = `<select onchange="dmsDirF('dept',this.value)"><option value="">كل الأقسام</option>${deptList().map((d) => `<option ${d === DUI.dept ? 'selected' : ''}>${esc(d)}</option>`).join('')}</select>`;
+    const fSt = `<select onchange="dmsDirF('st',this.value)"><option value="">كل الحالات</option>${Object.entries(ST).map(([k, v]) => `<option value="${k}" ${k === DUI.st ? 'selected' : ''}>${v[0]}</option>`).join('')}</select>`;
+    const pickRows = rows.filter((m) => (m.status || 'active') === 'active' || dAccount(m));
+    return `<div class="panel"><h3>دليل أعضاء هيئة التدريس <span class="small muted">(${L.length} عضو · ${withAcc} لهم حساب موحّد${noMail ? ' · ' + noMail + ' بلا بريد' : ''})</span></h3><div class="body">
+      <p class="small muted" style="margin-top:0">المصدر الرئيسي لبيانات الأعضاء في كل البرامج. يُنشأ لكل عضو حساب موحّد واحد: اسم المستخدم بريده، وكلمة المرور الأولية رقم جواله بدون الصفر الأول، ثم تُوزّع أدواره في اللجان والبرامج من «الحساب».</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center"><button class="btn primary" onclick="dmsDirEdit('')">+ إضافة عضو</button><button class="btn" onclick="dmsDirExport()">⬇️ تصدير Excel</button>
+        <label class="btn">⬆️ استيراد Excel<input type="file" accept=".xlsx,.xls,.csv" class="hidden" onchange="dmsDirImport(this.files[0]);this.value=''"></label>
+        ${fDept}${fSt}<input placeholder="بحث بالاسم أو البريد أو الجوال" value="${esc(DUI.q)}" onchange="dmsDirF('q',this.value)" style="flex:1;min-width:180px"></div>
+      <details style="margin-bottom:10px"><summary class="small">لصق من Excel (الاسم، المسمى، القسم، البريد، الجوال: بأي ترتيب مع صف العناوين)</summary>
+        <textarea id="dirPaste" rows="4" style="width:100%;margin-top:6px" placeholder="الاسم	القسم	البريد الإلكتروني	الجوال"></textarea><button class="btn sm primary" onclick="dmsDirPaste()">مطابقة وتطبيق</button></details>
+      <div class="tbl-wrap" style="max-height:440px;overflow:auto"><table class="t"><tr><th>الاسم</th><th>القسم</th><th>البريد (اسم المستخدم)</th><th>الجوال</th><th>الحالة</th><th>اللجان والأدوار</th><th></th></tr>
+      ${rows.map((m) => { const a = dAccount(m), s2 = ST[m.status || 'active'] || ST.active, mm = a ? Object.entries(a.memberships || {}) : [];
+        return `<tr><td>${esc(m.name)}<div class="small muted">${esc(m.title || '')}</div></td><td class="small">${esc(m.dept || '—')}</td><td dir="ltr" class="small">${esc(m.email || '—')}</td><td dir="ltr" class="small">${esc(m.phone || '—')}</td>
+          <td class="small"><b class="${s2[1]}">${s2[0]}</b>${a ? '' : '<div class="muted">بلا حساب</div>'}</td><td class="small">${mm.length ? mm.map(([c, r]) => esc(commName(c)) + ' <span class="muted">(' + ROLE_AR[r] + ')</span>').join('<br>') : '—'}</td>
+          <td style="white-space:nowrap"><button class="btn sm primary" onclick="dmsAccount('${m.id}')">الحساب</button> <button class="btn sm" onclick="dmsDirEdit('${m.id}')">تعديل</button> <button class="btn sm" onclick="dmsDirDel('${m.id}')">حذف</button></td></tr>`; }).join('') || '<tr><td colspan="7" class="muted">لا يوجد أعضاء بهذا التصفية. أضف الأعضاء أو استوردهم من Excel.</td></tr>'}</table></div></div></div>
+    <div class="panel"><h3>إضافة أعضاء إلى لجنة أو برنامج</h3><div class="body">
+      <p class="small muted" style="margin-top:0">اختر اللجنة (ومعها أنظمتها)، وصفِّ بالقسم إن شئت، ثم حدّد دور كل عضو. من ليس له حساب يُنشأ له الحساب الموحّد تلقائيًا، ومن له حساب تُضاف إليه هذه اللجنة وتبقى لجانه الأخرى كما هي.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px"><label class="f" style="margin:0;min-width:260px">اللجنة<select onchange="dmsDirF('comm',this.value)">${DB.committees.map((c) => `<option value="${c.id}" ${c.id === cid ? 'selected' : ''}>${esc(c.name)}${c.dept ? ' — ' + esc(deptName(c.dept)) : ''}</option>`).join('')}</select></label>
+        <span class="small">تعبئة الفارغ بـ:</span>${ROLES.slice(1).map(([k, l]) => `<button class="btn sm" onclick="dmsDirBulk('${k}')">${l}</button>`).join('')}<button class="btn sm" onclick="dmsDirBulk('')">مسح الكل</button></div>
+      <div class="tbl-wrap" style="max-height:460px;overflow:auto"><table class="t"><tr><th>العضو</th><th>القسم</th><th>البريد</th><th>الحساب</th><th>الدور في «${esc(commName(cid))}»</th><th>كلمة المرور الأولية</th></tr>
+      ${pickRows.map((m) => { const a = dAccount(m), cur = a ? ((a.memberships || {})[cid] || '') : '', ip = dInitPw(m.phone);
+        return `<tr><td>${esc(m.name)}</td><td class="small">${esc(m.dept || '')}</td><td dir="ltr" class="small">${esc(m.email || '—')}</td><td class="small">${a ? '<span class="good">موجود</span>' : m.email ? 'يُنشأ' : '<span class="bad">بلا بريد</span>'}</td>
+          <td><select data-dirrole="${m.id}">${ROLES.map(([k, l]) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${l}</option>`).join('')}</select></td>
+          <td>${a ? '<span class="small muted">—</span>' : `<input data-dirpw="${m.id}" dir="ltr" placeholder="${ip ? 'الجوال: ' + ip : 'تلقائية'}" style="width:150px" ${m.email ? '' : 'disabled'}>`}</td></tr>`; }).join('')}</table></div>
+      <div style="margin-top:10px"><button class="btn primary" id="dirGo" onclick="dmsDirApply()">تطبيق على «${esc(commName(cid))}»</button></div></div></div>`;
+  };
+  window.dmsDirF = (k, v) => { DUI[k] = v || ''; refresh(); };
+
   /* ---------- التشغيل ---------- */
   function applyBootstrap(b) {
     const s = b.settings || {};
