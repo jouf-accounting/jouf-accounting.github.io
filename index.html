@@ -1353,10 +1353,10 @@ function pgHead(){
 /* ===================== الإعدادات ===================== */
 function pgSettings(){
   if(!isAdmin())return noAccess();
-  const tabs=[['general','عام'],['identity','الهوية والمسميات'],['systems','الأنظمة والتحديثات'],['sync','المزامنة ودخول الأعضاء'],['committees','اللجان'],['courses','المقررات والمخرجات'],['directory','دليل أعضاء هيئة التدريس'],['data','التصدير والاستيراد'],['backup','النسخ الاحتياطي']];
+  const tabs=[['general','عام'],['identity','الهوية والمسميات'],['systems','الأنظمة والتحديثات'],['sync','المزامنة ودخول الأعضاء'],['committees','اللجان'],['courses','المقررات والمخرجات'],['directory','دليل أعضاء هيئة التدريس'],['students','دليل الطلاب'],['data','التصدير والاستيراد'],['backup','النسخ الاحتياطي']];
   const st=VIEW.st||'general';
   let h=`<div class="tabs">${tabs.map(([k,l])=>`<a class="${st===k?'on':''}" onclick="go('settings',{st:'${k}'})">${l}</a>`).join('')}</div>`;
-  return h+({general:setGeneral,systems:setSystems,sync:setSyncTab,committees:setCommittees,courses:setCourses,backup:setBackup,identity:window.setIdentity||setGeneral,data:window.setDataTab||setGeneral,directory:window.setDirectory||setGeneral}[st]||setGeneral)();
+  return h+({general:setGeneral,systems:setSystems,sync:setSyncTab,committees:setCommittees,courses:setCourses,backup:setBackup,identity:window.setIdentity||setGeneral,data:window.setDataTab||setGeneral,directory:window.setDirectory||setGeneral,students:window.setStudents||setGeneral}[st]||setGeneral)();
 }
 function setGeneral(){const S=DB.settings;
   return `<div class="panel"><h3>بيانات الجهة والفصل</h3><div class="body formgrid">
