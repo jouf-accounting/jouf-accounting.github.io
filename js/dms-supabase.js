@@ -1687,6 +1687,86 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
   };
   window.dmsDirF = (k, v) => { DUI[k] = v || ''; refresh(); };
 
+  /* ================= دليل الطلاب: مصدر مركزي تستورده الأنظمة ================= */
+  /* يُستورد من Excel (الاسم والرقم الجامعي إلزاميان؛ الشطر والتخصص والمستوى والجوال والبريد اختيارية)،
+     وتقرؤه الأنظمة عبر window.DMS_STUDENTS() فتختار منه من تريد وتستبعد من تشاء. */
+  const SDIR = () => { DB.settings.studentDir = Array.isArray(DB.settings.studentDir) ? DB.settings.studentDir : []; return DB.settings.studentDir; };
+  const sUid = (v) => String(v == null ? '' : v).replace(/[٠-٩]/g, (c) => '٠١٢٣٤٥٦٧٨٩'.indexOf(c)).replace(/\.0+$/, '').replace(/\s+/g, '').trim();
+  const sGender = (v) => { const s = String(v || '').trim(); if (!s) return ''; if (/طالبات|طالبة|أنثى|انثى|بنات|female|^f$/i.test(s)) return 'طالبة'; if (/طلاب|طالب|ذكر|بنين|male|^m$/i.test(s)) return 'طالب'; return ''; };
+  window.DMS_STUDENTS = () => JSON.parse(JSON.stringify(SDIR().filter((s) => s.active !== false).map((s) => ({ uid: s.uid, name: s.name, gender: s.gender || '', major: s.major || '', level: s.level || '', phone: s.phone || '', email: s.email || '' }))));
+  const SUI = { q: '', g: '', mj: '' };
+  function stuParse(rows) {
+    rows = rows.map((r) => r.map((c) => String(c == null ? '' : c).trim())).filter((r) => r.some(Boolean)); if (!rows.length) return { err: 'الملف فارغ' };
+    let hi = rows.findIndex((r) => r.some((c) => /الاسم|اسم الطالب|^name/i.test(c)) && r.some((c) => /الرقم الجامعي|الرقم|رقم الطالب|^uid$|^id$|student ?id/i.test(c)));
+    if (hi < 0) return { err: 'لم أجد صف العناوين: يلزم عمود «الاسم» وعمود «الرقم الجامعي»' };
+    const H = rows[hi], f = (re) => H.findIndex((h) => re.test(h));
+    const iU = f(/الرقم الجامعي|رقم الطالب|student ?id|^uid$/i) >= 0 ? f(/الرقم الجامعي|رقم الطالب|student ?id|^uid$/i) : f(/الرقم|^id$/i);
+    const iN = H.findIndex((h, i) => i !== iU && /الاسم|اسم الطالب|^name/i.test(h));
+    const iG = f(/الشطر|الجنس|النوع|gender/i), iM = f(/التخصص|البرنامج|major/i), iL = f(/المستوى|level/i), iP = f(/جوال|هاتف|موبايل|phone|mobile/i), iE = f(/بريد|ايميل|إيميل|mail/i);
+    const out = []; let skip = 0;
+    rows.slice(hi + 1).forEach((r) => { const uid = sUid(r[iU]), name = (r[iN] || '').replace(/\s+/g, ' ').trim(); if (!uid || !name) { skip++; return; }
+      out.push({ uid, name, gender: iG >= 0 ? sGender(r[iG]) : '', major: iM >= 0 ? r[iM] : '', level: iL >= 0 ? r[iL] : '', phone: iP >= 0 ? r[iP].replace(/\s+/g, '') : '', email: iE >= 0 ? r[iE].toLowerCase() : '' }); });
+    return { rows: out, skip };
+  }
+  function stuMerge(res, label) {
+    if (res.err) { alert(res.err); return; } if (!res.rows.length) { toast('لا توجد صفوف فيها اسم ورقم جامعي'); return; }
+    let add = 0, upd = 0; const L = SDIR(), idx = new Map(L.map((s) => [s.uid, s]));
+    res.rows.forEach((r) => { const ex = idx.get(r.uid);
+      if (ex) { ['name', 'gender', 'major', 'level', 'phone', 'email'].forEach((k) => { if (r[k]) ex[k] = r[k]; }); ex.active = true; upd++; }
+      else { const s = Object.assign({ active: true }, r); L.push(s); idx.set(r.uid, s); add++; } });
+    save(); audit(label, add + ' جديد، ' + upd + ' تحديث', ''); toast('أُضيف ' + add + ' وحُدّث ' + upd + (res.skip ? ' · تُجوهل ' + res.skip + ' صف ناقص' : '')); refresh();
+  }
+  window.dmsStuImport = async function (f) { if (!f || !isAdmin()) return; try { await ensureXLSX(); const wb = XLSX.read(new Uint8Array(await f.arrayBuffer()), { type: 'array' });
+      stuMerge(stuParse(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '', raw: false })), 'استيراد دليل الطلاب من Excel'); }
+    catch (e) { toast('تعذرت قراءة الملف'); } };
+  window.dmsStuPaste = function () { const t = document.getElementById('stuPaste'); if (!t || !t.value.trim() || !isAdmin()) return; stuMerge(stuParse(t.value.split(/\r?\n/).map((l) => l.split(/\t|;/))), 'لصق دليل الطلاب'); };
+  window.dmsStuTemplate = async function () { await exportXlsx('نموذج_دليل_الطلاب', [['الطلاب', [['الرقم الجامعي', 'الاسم', 'الشطر', 'التخصص', 'المستوى', 'الجوال', 'البريد الإلكتروني'], ['441000001', 'مثال: محمد أحمد', 'طالب', 'المحاسبة', '8', '05XXXXXXXX', '']]]]); };
+  window.dmsStuExport = async function () { await exportXlsx('دليل_الطلاب_' + today(), [['الطلاب', [['الرقم الجامعي', 'الاسم', 'الشطر', 'التخصص', 'المستوى', 'الجوال', 'البريد الإلكتروني', 'الحالة']].concat(SDIR().map((s) => [s.uid, s.name, s.gender || '', s.major || '', s.level || '', s.phone || '', s.email || '', s.active === false ? 'موقوف' : 'فعال']))]]); };
+  window.dmsStuEdit = function (uid) {
+    if (!isAdmin()) return; const L = SDIR(), cur = L.find((x) => x.uid === uid), m = Object.assign({ uid: '', name: '', gender: '', major: '', level: '', phone: '', email: '', active: true }, cur || {});
+    const majors = [...new Set(L.map((s) => s.major).filter(Boolean))];
+    const ov = overlay(`<div class="panel" style="width:min(580px,96vw);margin:0"><h3>${cur ? 'تعديل بيانات طالب' : 'إضافة طالب'}</h3><div class="body formgrid">
+      <label class="f">الرقم الجامعي *<input id="sU" dir="ltr" value="${esc(m.uid)}"></label><label class="f">الاسم *<input id="sN" value="${esc(m.name)}"></label>
+      <label class="f">الشطر<select id="sG"><option value="">—</option>${['طالب', 'طالبة'].map((g) => `<option ${g === m.gender ? 'selected' : ''}>${g}</option>`).join('')}</select></label>
+      <label class="f">التخصص<input id="sM" list="sML" value="${esc(m.major)}"><datalist id="sML">${majors.map((x) => `<option value="${esc(x)}">`).join('')}</datalist></label>
+      <label class="f">المستوى<input id="sL" value="${esc(m.level)}"></label><label class="f">الجوال<input id="sP" dir="ltr" value="${esc(m.phone)}" placeholder="05XXXXXXXX"></label>
+      <label class="f">البريد الإلكتروني<input id="sE" dir="ltr" value="${esc(m.email)}"></label>
+      <label class="f">الحالة<select id="sA"><option value="1">فعال</option><option value="0" ${m.active === false ? 'selected' : ''}>موقوف (لا يظهر للأنظمة)</option></select></label>
+      <div style="grid-column:1/-1;display:flex;gap:8px"><button class="btn primary" id="sOk">حفظ</button><button class="btn" id="sNo">إلغاء</button></div></div></div>`);
+    ov.querySelector('#sNo').onclick = () => ov.remove();
+    ov.querySelector('#sOk').onclick = () => { const v = (k) => ov.querySelector(k).value.trim(), u = sUid(v('#sU'));
+      if (!u || !v('#sN')) { toast('الاسم والرقم الجامعي إلزاميان'); return; }
+      if (L.some((x) => x !== cur && x.uid === u)) { toast('الرقم الجامعي مسجّل لطالب آخر'); return; }
+      const rec = Object.assign(cur || {}, { uid: u, name: v('#sN'), gender: v('#sG'), major: v('#sM'), level: v('#sL'), phone: v('#sP'), email: v('#sE').toLowerCase(), active: v('#sA') === '1' });
+      if (!cur) L.push(rec); save(); audit(cur ? 'تعديل طالب في الدليل' : 'إضافة طالب إلى الدليل', rec.name, rec.uid); ov.remove(); refresh(); };
+  };
+  window.dmsStuDel = function (uid) { if (!isAdmin()) return; const s = SDIR().find((x) => x.uid === uid); if (!s || !confirm('حذف «' + s.name + '» من دليل الطلاب؟\n(لا يُحذف من الأنظمة التي سبق أن جلبته)')) return;
+    DB.settings.studentDir = SDIR().filter((x) => x.uid !== uid); save(); audit('حذف طالب من الدليل', s.name, s.uid); refresh(); };
+  window.dmsStuClear = function () { if (!isAdmin() || !SDIR().length) return; if (prompt('سيُحذف دليل الطلاب كاملًا (' + SDIR().length + ' طالب). للتأكيد اكتب: حذف') !== 'حذف') return;
+    const n = SDIR().length; DB.settings.studentDir = []; save(); audit('مسح دليل الطلاب', n + ' طالب', ''); refresh(); };
+  window.setStudents = function () {
+    if (!isAdmin()) return '<div class="panel"><div class="body">دليل الطلاب من صلاحية المالك.</div></div>';
+    const L = SDIR().slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'ar')), q = SUI.q.trim();
+    const majors = [...new Set(L.map((s) => s.major).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ar'));
+    const rows = L.filter((s) => (!q || s.name.includes(q) || s.uid.includes(q) || (s.phone || '').includes(q)) && (!SUI.g || (SUI.g === '-' ? !s.gender : s.gender === SUI.g)) && (!SUI.mj || s.major === SUI.mj));
+    const cnt = (g) => L.filter((s) => s.gender === g).length, CAP = 600;
+    return `<div class="panel"><h3>دليل الطلاب <span class="small muted">(الإجمالي ${L.length} · طلاب ${cnt('طالب')} · طالبات ${cnt('طالبة')}${L.length - cnt('طالب') - cnt('طالبة') ? ' · بلا شطر ' + (L.length - cnt('طالب') - cnt('طالبة')) : ''})</span></h3><div class="body">
+      <p class="small muted" style="margin-top:0">مصدر مركزي لبيانات الطلاب. الاسم والرقم الجامعي إلزاميان، والشطر (طالب/طالبة) والتخصص والمستوى والجوال والبريد اختيارية. تجلب منه الأنظمة (مثل اختبار الجاهزية) الطلاب، ولكل نظام أن يستبعد من يشاء. إعادة الاستيراد تحدّث الموجود بالرقم الجامعي وتضيف الجديد.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center"><button class="btn primary" onclick="dmsStuEdit('')">+ إضافة طالب</button>
+        <label class="btn">⬆️ استيراد Excel<input type="file" accept=".xlsx,.xls,.csv" class="hidden" onchange="dmsStuImport(this.files[0]);this.value=''"></label>
+        <button class="btn" onclick="dmsStuTemplate()">📄 نموذج Excel</button><button class="btn" onclick="dmsStuExport()">⬇️ تصدير</button>${L.length ? '<button class="btn" onclick="dmsStuClear()">🗑 مسح الدليل</button>' : ''}
+        <select onchange="dmsStuF('g',this.value)"><option value="">كل الشطرين</option>${[['طالب', 'طلاب'], ['طالبة', 'طالبات'], ['-', 'غير محدد']].map(([k, l]) => `<option value="${k}" ${k === SUI.g ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <select onchange="dmsStuF('mj',this.value)"><option value="">كل التخصصات</option>${majors.map((m) => `<option ${m === SUI.mj ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select>
+        <input placeholder="بحث بالاسم أو الرقم أو الجوال" value="${esc(SUI.q)}" onchange="dmsStuF('q',this.value)" style="flex:1;min-width:180px"></div>
+      <details style="margin-bottom:10px"><summary class="small">لصق من Excel (مع صف العناوين: الرقم الجامعي، الاسم، الشطر، التخصص…)</summary>
+        <textarea id="stuPaste" rows="4" style="width:100%;margin-top:6px" placeholder="الرقم الجامعي	الاسم	الشطر	التخصص"></textarea><button class="btn sm primary" onclick="dmsStuPaste()">مطابقة وتطبيق</button></details>
+      <div class="tbl-wrap" style="max-height:480px;overflow:auto"><table class="t"><tr><th>الرقم الجامعي</th><th>الاسم</th><th>الشطر</th><th>التخصص</th><th>المستوى</th><th>الجوال</th><th>البريد</th><th></th></tr>
+      ${rows.slice(0, CAP).map((s) => `<tr${s.active === false ? ' style="opacity:.55"' : ''}><td dir="ltr">${esc(s.uid)}</td><td>${esc(s.name)}${s.active === false ? ' <span class="small bad">موقوف</span>' : ''}</td><td class="small">${esc(s.gender || '—')}</td><td class="small">${esc(s.major || '—')}</td><td class="small">${esc(s.level || '—')}</td><td dir="ltr" class="small">${esc(s.phone || '—')}</td><td dir="ltr" class="small">${esc(s.email || '—')}</td>
+        <td style="white-space:nowrap"><button class="btn sm" onclick="dmsStuEdit('${esc(s.uid)}')">تعديل</button> <button class="btn sm" onclick="dmsStuDel('${esc(s.uid)}')">حذف</button></td></tr>`).join('') || '<tr><td colspan="8" class="muted">لا يوجد طلاب. استوردهم من Excel (نزّل النموذج أولًا).</td></tr>'}</table></div>
+      ${rows.length > CAP ? `<p class="small muted">يُعرض أول ${CAP} من ${rows.length}؛ استخدم البحث أو التصفية.</p>` : ''}</div></div>`;
+  };
+  window.dmsStuF = (k, v) => { SUI[k] = v || ''; refresh(); };
+
   /* ---------- التشغيل ---------- */
   function applyBootstrap(b) {
     const s = b.settings || {};
