@@ -16,6 +16,20 @@
     auth: { persistSession: true, autoRefreshToken: true, storage: window.sessionStorage, storageKey: 'dms-auth' },
   });
   window.SB = sb;
+  /* دوال الخادم (إدارة الحسابات): رمز دخول حديث دائمًا، وتجديده وإعادة المحاولة مرة إذا انتهت صلاحيته */
+  { const _inv = sb.functions.invoke.bind(sb.functions);
+    const EXPIRED = 'انتهت جلسة الدخول. اخرج من الموقع وادخل مرة أخرى، ثم أعد المحاولة.';
+    const tok = async (force) => { try { let s = (await sb.auth.getSession()).data.session;
+        if (force || !s || (s.expires_at && s.expires_at * 1000 < Date.now() + 60000)) { const r = await sb.auth.refreshSession(); s = (r.data && r.data.session) || (force ? null : s); }
+        return s && s.access_token; } catch (e) { return null; } };
+    const call = (name, opts, t) => _inv(name, Object.assign({}, opts, { headers: Object.assign({}, (opts && opts.headers) || {}, { Authorization: 'Bearer ' + t }) }));
+    const is401 = (r) => (r.error && r.error.context && r.error.context.status === 401) || (r.data && r.data.error === 'يجب تسجيل الدخول');
+    sb.functions.invoke = async function (name, opts) {
+      let t = await tok(false); if (!t) return { data: { error: EXPIRED }, error: null };
+      let r = await call(name, opts, t); if (!is401(r)) return r;
+      t = await tok(true); if (!t) return { data: { error: EXPIRED }, error: null };
+      r = await call(name, opts, t); return is401(r) ? { data: { error: EXPIRED }, error: null } : r;
+    }; }
   const DOMAIN = CFG.emailDomain || 'dms.local';
 
   /* ---------- جداول الأعمال ---------- */
@@ -549,6 +563,47 @@
       ? `<span class="bad">عدّل مستخدم آخر بيانات هذا النظام أثناء عملك، ولم تُحفظ آخر تعديلاتك.</span> <button class="btn sm" onclick="dmsAppResolve('${a}',false)">تحميل آخر نسخة (تُلغى تعديلاتي)</button> <button class="btn sm danger" onclick="dmsAppResolve('${a}',true)">اعتماد نسختي</button>`
       : S.remoteChanged ? `<span style="color:var(--wait)">حدّث مستخدم آخر بيانات هذا النظام.</span> <button class="btn sm" onclick="dmsAppResolve('${a}',false)">إعادة التحميل لرؤيتها</button>` : '';
   }
+  /* ================= حماية الأنظمة: النسخ والتنزيل للمالك فقط ================= */
+  /* لغير مالك الموقع: لا تنزيل لملف النظام ولا نسخ احتياطية ولا استعادة، داخل كل الأنظمة.
+     يُحقن في إطار النظام قبل تشغيله، فيعمل مع أي إصدار يُرفع لاحقًا. */
+  const DMS_GUARD = `<script>(function(){if(window.DMS_MEMBER_LOCK)return;window.DMS_MEMBER_LOCK=true;
+var MSG='هذه العملية من صلاحية مالك الموقع فقط، حفاظًا على سرية الأنظمة وبياناتها.';var last=0;function note(){var n=Date.now();if(n-last<800)return;last=n;try{alert(MSG)}catch(e){}}
+function bad(n){n=String(n||'').trim().toLowerCase();return /\\.json$/.test(n)||(/\\.html?$/.test(n)&&/نسخة|الإصدار|إصدار|version|^index\\.html?$|نظام|system|backup|app/.test(n))}
+var AC=HTMLAnchorElement.prototype.click;HTMLAnchorElement.prototype.click=function(){if(this.hasAttribute('download')&&bad(this.getAttribute('download')||this.download)){note();return}return AC.apply(this,arguments)};
+var DE=EventTarget.prototype.dispatchEvent;EventTarget.prototype.dispatchEvent=function(ev){if(this instanceof HTMLAnchorElement&&ev&&ev.type==='click'&&this.hasAttribute('download')&&bad(this.getAttribute('download')||this.download)){note();return false}return DE.apply(this,arguments)};
+function jf(i){return !!(i&&i.tagName==='INPUT'&&i.type==='file'&&/json/i.test(i.accept||''))}
+var OKJ=0;document.addEventListener('click',function(e){if(e.target&&e.target.tagName==='INPUT')return;var b=e.target&&e.target.closest&&e.target.closest('button,a,label,.btn');var t=b?(b.textContent||''):'';OKJ=(/حزمة نتائج|نتائج الطلاب/.test(t)&&!RX.test(t))?Date.now():0},true);
+function okj(){return OKJ&&Date.now()-OKJ<1500}
+var IC=HTMLInputElement.prototype.click;HTMLInputElement.prototype.click=function(){if(jf(this)&&!okj()){note();return}return IC.apply(this,arguments)};
+if(HTMLInputElement.prototype.showPicker){var SP=HTMLInputElement.prototype.showPicker;HTMLInputElement.prototype.showPicker=function(){if(jf(this)&&!okj()){note();return}return SP.apply(this,arguments)}}
+document.addEventListener('click',function(e){var t=e.target;if(!t||!t.closest)return;var a=t.closest('a[download]');if(a&&bad(a.getAttribute('download'))){e.preventDefault();e.stopImmediatePropagation();note();return}
+var l=t.closest('label');var i=t.tagName==='INPUT'?t:(l&&l.querySelector('input[type=file]'));if(jf(i)&&!okj()){e.preventDefault();e.stopImmediatePropagation();note()}},true);
+document.addEventListener('change',function(e){if(jf(e.target)&&!okj()){e.stopImmediatePropagation();try{e.target.value=''}catch(x){}note()}},true);
+try{if(navigator.share){var SH=navigator.share.bind(navigator);navigator.share=function(d){if(d&&d.files&&[].some.call(d.files,function(f){return bad(f.name)})){note();return Promise.reject(new Error('blocked'))}return SH(d)}}}catch(e){}
+try{window.showSaveFilePicker=undefined}catch(e){}
+document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&/^(s|u)$/i.test(e.key||'')){e.preventDefault();e.stopPropagation()}},true);
+document.addEventListener('contextmenu',function(e){var t=e.target;if(t&&t.closest&&t.closest('input,textarea,[contenteditable=true]'))return;e.preventDefault()},true);
+var RX=/نسخة احتياطية|نسخ احتياطي|نسخة كاملة|نسخة سريعة|استعادة (من )?نسخة|استعادة كاملة|استعادة قاعدة|استعادة البيانات|استيراد نسخة|حزمة تحديث|استيراد \\/ استعادة|النسخة المستقلة|نسخة الزملاء|نسخة للزملاء|تنزيل البرنامج|تحديث التطبيق|مزامنة البيانات|ملف المزامنة|بيانات المزامنة|JSON/i;
+function sweep(){try{document.querySelectorAll('button,a,label,.btn,.ni,[role=button],option').forEach(function(b){if(b.getAttribute('data-dmshid'))return;var t=(b.textContent||'').trim();if(t&&t.length<90&&RX.test(t)){b.style.setProperty('display','none','important');b.setAttribute('data-dmshid','1')}});
+document.querySelectorAll('input[type=file]').forEach(function(i){if(jf(i)){var w=(i.closest&&i.closest('label,.fg'))||i;w.style.setProperty('display','none','important')}})}catch(e){}}
+var tm;try{new MutationObserver(function(){clearTimeout(tm);tm=setTimeout(sweep,40)}).observe(document.documentElement,{childList:true,subtree:true})}catch(e){}
+document.addEventListener('DOMContentLoaded',sweep);setTimeout(sweep,300);})();<\/script>`;
+  /* نظام إدارة الاختبارات (المراقبات): الدخول بحساب الموقع بدل شاشة كلمة المرور.
+     المالك = مالك الموقع، وغيره يدخل بحسابه في النظام (يُطابَق بالبريد أو الاسم)، ومن لا حساب له يُنشأ له حساب «لجان الاختبارات» يعدّله المالك من «إدارة المستخدمين». */
+  const EXAMS_SSO = `<script>(function(){var P=null;try{P=window.parent;if(!P||P===window||typeof P.DMS_ME!=='function')return}catch(e){return}
+function nr(s){return String(s||'').replace(/^\\s*(د|أ\\.?\\s*د)\\s*\\.\\s*/,'').replace(/[إأآا]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\\s+/g,' ').trim()}
+var st=document.createElement('style');st.textContent='.logout-btn{display:none!important}';document.head.appendChild(st);
+var MSG='';function login(){if(typeof D==='undefined'||!D||!Array.isArray(D.users))return false;var me=P.DMS_ME();if(!me)return false;
+if(me.isAdmin){CU={id:'owner',name:me.name||'المالك',role:'owner',dept:'الكلية'};return true}
+var em=String(me.email||'').toLowerCase();var u=D.users.find(function(x){return em&&((x.email&&String(x.email).toLowerCase()===em)||String(x.username||'').toLowerCase()===em)})||D.users.find(function(x){return nr(x.name)===nr(me.name)});
+if(!u){u={id:'i'+Date.now()+'_'+Math.random().toString(36).slice(2,7),name:me.name,username:em||me.name,password:Math.random().toString(36).slice(2,12),role:'committee',dept:me.dept||'الكلية',email:em,site:true};D.users.push(u);D.userStatus=D.userStatus||{};D.userStatus[u.id]=true;try{sv()}catch(e){}}
+else if(em&&!u.email){u.email=em;try{sv()}catch(e){}}
+if(D.userStatus&&D.userStatus[u.id]===false){MSG='أوقف مالك النظام حسابك في نظام الاختبارات. تواصل معه لإعادة تفعيله.';return false}
+CU=u;if(['rec','dashboard'].indexOf(CP)<0||(u.role==='committee'&&CP==='dashboard'))CP=u.role==='committee'?'rec':'dashboard';return true}
+var R=render;render=function(){if(!CU)login();if(!CU&&MSG){var a=document.getElementById('app')||document.body;a.innerHTML='<div style="max-width:520px;margin:80px auto;padding:24px;border-radius:14px;background:#fff;color:#222;text-align:center;font-family:inherit"><h2>🔒</h2><p>'+MSG+'</p></div>';return}return R.apply(this,arguments)};
+try{if(!CU){login();render()}}catch(e){console.warn('exams sso',e)}})();<\/script>`;
+  const isExamsApp = (html) => /LT===['"]owner['"]/.test(html) && /D\.ownerPassword/.test(html);
+  const addTail = (html, s) => /<\/body>/i.test(html) ? html.replace(/<\/body>(?![\s\S]*<\/body>)/i, s + '</body>') : html + s;
   function injectShim(html, a) {
     const shim = `<script>(function(){var P=window.parent,S=P&&P.DMS_APPSTORE&&P.DMS_APPSTORE[${JSON.stringify(a)}];if(!S)return;var m=S.map;
 var st={getItem:function(k){k=String(k);return m.has(k)?m.get(k):null},setItem:function(k,v){k=String(k);v=String(v);if(m.get(k)===v)return;m.set(k,v);S.put(k,v)},
@@ -558,7 +613,10 @@ var px=new Proxy(st,{get:function(t,p){if(typeof p==='symbol'||p in t)return t[p
 deleteProperty:function(t,p){t.removeItem(p);return true},has:function(t,p){return p in t||m.has(String(p))},ownKeys:function(){return Array.from(m.keys())},
 getOwnPropertyDescriptor:function(t,p){return m.has(String(p))?{value:m.get(String(p)),enumerable:true,configurable:true,writable:true}:undefined}});
 try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(){return px}})}catch(e){P.console.warn('storage shim',e)}})();<\/script>`;
-    return /<head[^>]*>/i.test(html) ? html.replace(/<head([^>]*)>/i, (m) => m + shim) : shim + html;
+    const lock = !isAdmin() ? DMS_GUARD : '';
+    let out = /<head[^>]*>/i.test(html) ? html.replace(/<head([^>]*)>/i, (m) => m + shim + lock) : shim + lock + html;
+    if (isExamsApp(html)) out = addTail(out, EXAMS_SSO);
+    return out;
   }
   const _rawAppText = appHtmlText;
   appHtmlText = async function (a) {
@@ -569,15 +627,32 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
     return injectShim(t, a);
   };
   appHtmlBlob = async function (a) { return new Blob([await _rawAppText(a)], { type: 'text/html;charset=utf-8' }); };
+  { const _dl = downloadApp; downloadApp = async function (a) { if (!isAdmin()) { alert('تنزيل ملف النظام من صلاحية مالك الموقع فقط.'); return; } return _dl.apply(this, arguments); }; }
+  document.addEventListener('keydown', (e) => { if (ME && !isAdmin() && (e.ctrlKey || e.metaKey) && /^(s|u)$/i.test(e.key || '')) e.preventDefault(); }, true);
+  /* الأنظمة التي ما زالت تعمل من الملف العام (مجلد apps في GitHub): أي أحد يستطيع تنزيله من الرابط مباشرة */
+  window.dmsProtectBuiltin = async function (k) {
+    if (!isAdmin()) return; const t = await builtinText(k); if (!t) { alert('لم أجد الملف العام لهذا النظام. ارفع ملفه من «رفع تحديث».'); return; }
+    await doUploadVersion(k, new File([t], k + '.html', { type: 'text/html' }), (APPS[k] || {}).ver || '', 'نقل الإصدار المدمج إلى خادم القسم المحمي');
+  };
+  { const _ssP = setSystems; setSystems = function () { const h = _ssP.apply(this, arguments);
+      const pub = Object.keys(allApps()).filter((k) => APPS[k] && !curVersion(k));
+      const box = pub.length
+        ? `<div class="panel" style="border:2px solid #C62828"><h3>🔒 حماية ملفات الأنظمة</h3><div class="body"><p class="small" style="margin-top:0">هذه الأنظمة تعمل الآن من الملف العام في مجلد <b dir="ltr">apps</b> على GitHub، ويستطيع أي أحد تنزيله من رابطه مباشرة. اضغط «حماية» لنقل كل نظام إلى خادم القسم (لا يصل إليه إلا من سجّل الدخول، ولا يُنزَّل إلا للمالك)، ثم احذف مجلد <b dir="ltr">apps</b> من GitHub.</p>
+          ${pub.map((k) => `<div style="display:flex;gap:8px;align-items:center;margin:6px 0"><b style="flex:1">${esc(allApps()[k].name)}</b><button class="btn sm primary" onclick="dmsProtectBuiltin('${k}')">🔒 حماية</button></div>`).join('')}</div></div>`
+        : `<div class="panel" style="border:2px solid #2E7D32"><div class="body small">🔒 كل الأنظمة تعمل من خادم القسم المحمي. إن كان مجلد <b dir="ltr">apps</b> ما زال في GitHub فاحذفه، فلم يعد النظام يحتاجه. تنزيل ملفات الأنظمة ونسخها الاحتياطية من صلاحيتك وحدك.</div></div>`;
+      return box + h; }; }
   const _openTool = openTool;
   openTool = async function (a) {
     const meta = ((DB.settings.appMeta || {})[a]) || {};
     if (meta.disabled) { toast('هذا النظام معطّل من «الأنظمة والتحديثات».'); go('home'); return; }
     const sc = appScope(a);
-    if (FRAMES[a] && FRAMES[a].dataset.scope !== sc) { FRAMES[a].remove(); delete FRAMES[a]; }
+    const lk = isAdmin() ? 'owner' : 'member:' + ((ME && ME.id) || '');
+    if (FRAMES[a] && (FRAMES[a].dataset.scope !== sc || FRAMES[a].dataset.lock !== lk)) { FRAMES[a].remove(); delete FRAMES[a]; }
     await _openTool(a);
-    if (FRAMES[a]) FRAMES[a].dataset.scope = sc;
+    if (FRAMES[a]) { FRAMES[a].dataset.scope = sc; FRAMES[a].dataset.lock = lk; }
     const bar = $('#toolBar');
+    /* تنزيل ملف النظام من صلاحية المالك فقط */
+    if (bar && !isAdmin()) [...bar.querySelectorAll('button')].forEach((b) => { if (/تنزيل النسخة المستقلة/.test(b.textContent)) b.remove(); });
     /* اسم اللجنة في شريط النظام يطابق القسم الذي تُعرض بياناته */
     try {
       const c0 = comm(allApps()[a].committee);
@@ -598,7 +673,7 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
         lbl.textContent = 'بيانات: ' + (sc === 'college' ? 'مستوى الكلية' : deptName(sc));
       }
       bar.insertBefore(lbl, bar.children[1] || null);
-      if (isAdmin() || isChair(allApps()[a].committee)) {
+      if (isAdmin()) {
         const b = document.createElement('label'); b.id = 'appImpBtn'; b.className = 'btn sm'; b.textContent = 'استيراد بيانات من النسخة السابقة';
         b.innerHTML += `<input type="file" accept=".json" class="hidden" onchange="dmsImportAppData('${a}',this.files[0])">`; bar.appendChild(b);
       }
@@ -1686,6 +1761,68 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
       <div style="margin-top:10px"><button class="btn primary" id="dirGo" onclick="dmsDirApply()">تطبيق على «${esc(commName(cid))}»</button></div></div></div>`;
   };
   window.dmsDirF = (k, v) => { DUI[k] = v || ''; refresh(); };
+
+  /* ================= طلب كلمة مرور جديدة بعد 3 محاولات خاطئة ================= */
+  /* العضو يطلب من شاشة الدخول، والمالك يوافق فتعود كلمة المرور إلى رقم الجوال دون الصفر الأول، ويُطلب تغييرها عند الدخول. */
+  const PWF = (e) => { try { return JSON.parse(sessionStorage.getItem('dms-pwfail') || '{}')[e] || 0; } catch (x) { return 0; } };
+  const PWFset = (e, n) => { try { const o = JSON.parse(sessionStorage.getItem('dms-pwfail') || '{}'); if (n) o[e] = n; else delete o[e]; sessionStorage.setItem('dms-pwfail', JSON.stringify(o)); } catch (x) {} };
+  function pwrBox(email) {
+    let b = document.getElementById('pwrBox'); const err = $('#lgErr'); if (!err) return;
+    if (!b) { b = document.createElement('div'); b.id = 'pwrBox'; b.style.cssText = 'margin-top:8px;padding:10px 12px;border-radius:10px;background:#FFF7E6;border:1px solid #F0D9A8;font-size:13px;line-height:1.8'; err.insertAdjacentElement('afterend', b); }
+    b.innerHTML = `نسيت كلمة المرور؟ اطلب من المالك إعادتها. بعد موافقته تدخل بكلمة المرور الأولية (رقم جوالك دون الصفر الأول)، ثم تختار كلمة مرور جديدة.<br><button type="button" class="btn sm primary" id="pwrGo" style="margin-top:6px">طلب كلمة مرور جديدة</button>`;
+    b.querySelector('#pwrGo').onclick = async () => { const bt = b.querySelector('#pwrGo'); bt.disabled = true; bt.textContent = 'جارٍ الإرسال…';
+      try { const { data, error } = await sb.rpc('request_pw_reset', { p_email: email }); if (error || !data || data.ok === false) throw new Error((error && error.message) || 'x');
+        b.innerHTML = data.dup ? '✓ طلبك السابق ما زال عند المالك. سيصلك إشعار عند الموافقة، ثم ادخل برقم جوالك دون الصفر الأول.' : '✓ أُرسل طلبك إلى المالك. بعد موافقته ادخل بالبريد، وكلمة المرور رقم جوالك دون الصفر الأول، ثم اختر كلمة مرور جديدة.'; }
+      catch (x) { b.innerHTML = 'تعذر إرسال الطلب الآن. تواصل مع مالك الموقع مباشرة.'; } };
+  }
+  { const _dl = doLogin; doLogin = async function (e) {
+      const un = (($('#lgUser') || {}).value || '').trim().toLowerCase(), email = un.includes('@') ? un : un + '@' + DOMAIN;
+      const old = document.getElementById('pwrBox'); if (old) old.remove();
+      await _dl.apply(this, arguments);
+      const msg = (($('#lgErr') || {}).textContent || '');
+      if (/غير صحيحة/.test(msg)) { const n = PWF(email) + 1; PWFset(email, n); if (n >= 3 && email.includes('@')) pwrBox(email); }
+      else if (ME) PWFset(email, 0);
+    }; }
+  /* عند المالك: الطلبات الجديدة */
+  let PWR = null, PWR_ERR = '';
+  async function loadPwr() { if (!isAdmin()) return; const { data, error } = await sb.from('pw_reset_requests').select('*').eq('status', 'new').order('created_at');
+    if (error) { PWR = []; PWR_ERR = /does not exist|schema cache|42P01/i.test(error.message + (error.code || '')) ? 'missing' : error.message; return; } PWR = data || []; PWR_ERR = ''; }
+  window.dmsPwrLoad = async () => { await loadPwr(); if (PWR && PWR.length) toast('🔑 ' + PWR.length + ' طلب كلمة مرور جديدة: الإعدادات ← دليل أعضاء هيئة التدريس'); };
+  { const _en2 = enter; enter = function () { _en2.apply(this, arguments); if (isAdmin()) setTimeout(() => window.dmsPwrLoad().then(() => { if (VIEW && VIEW.page === 'settings') refresh(); }), 800); }; }
+  window.dmsPwrAct = async function (id, ok) {
+    if (!isAdmin()) return; const r = (PWR || []).find((x) => String(x.id) === String(id)); if (!r) return;
+    if (ok) {
+      const m = DIR().find((x) => dMail(x.email) === dMail(r.email)) || { name: r.email, email: r.email, phone: '' }, acc = DB.users.find((u) => dMail(u.email) === dMail(r.email));
+      if (!acc) { alert('لا يوجد حساب في الموقع بهذا البريد.'); return; }
+      let pw = dInitPw(m.phone);
+      if (!pw) { pw = prompt('لا يوجد جوال لهذا العضو في الدليل. اكتب كلمة مرور مؤقتة (8 أحرف على الأقل):', '') || ''; if (pw.length < 8) return; }
+      try { await usersFn({ action: 'update', appId: acc.id, password: pw }); } catch (x) { alert('تعذر: ' + x.message); return; }
+      await sb.from('pw_reset_requests').update({ status: 'done', handled_at: new Date().toISOString(), handled_by: ME.username }).eq('id', r.id);
+      audit('إعادة كلمة المرور إلى الأولية', m.name, r.email); save(); PWR = PWR.filter((x) => x !== r); refresh(); credsDlg([{ m, pwd: pw }]);
+    } else {
+      if (!confirm('رفض طلب ' + r.email + '؟')) return;
+      await sb.from('pw_reset_requests').update({ status: 'rejected', handled_at: new Date().toISOString(), handled_by: ME.username }).eq('id', r.id);
+      PWR = PWR.filter((x) => x !== r); refresh();
+    }
+  };
+  /* إعادة كلمة المرور يدويًا من «الحساب» دون طلب */
+  window.dmsPwReset = async function (id) {
+    if (!isAdmin()) return; const m = DIR().find((x) => x.id === id), acc = m && dAccount(m); if (!acc) return;
+    let pw = dInitPw(m.phone); if (!pw) { pw = prompt('لا يوجد جوال لهذا العضو. اكتب كلمة مرور مؤقتة (8 أحرف على الأقل):', '') || ''; if (pw.length < 8) return; }
+    if (!confirm('إعادة كلمة مرور «' + m.name + '» إلى ' + (pw === dInitPw(m.phone) ? 'رقم جواله دون الصفر الأول' : 'الكلمة المؤقتة') + '؟ سيُطلب منه تغييرها عند الدخول.')) return;
+    try { await usersFn({ action: 'update', appId: acc.id, password: pw }); } catch (x) { alert('تعذر: ' + x.message); return; }
+    audit('إعادة كلمة المرور إلى الأولية', m.name, m.email); save(); credsDlg([{ m, pwd: pw }]);
+  };
+  { const _sd = window.setDirectory; window.setDirectory = function () { let h = _sd.apply(this, arguments); if (!isAdmin()) return h;
+      if (PWR === null) { loadPwr().then(() => { if (PWR && PWR.length || PWR_ERR) refresh(); }); return h; }
+      h = h.replace(/(<button class="btn sm" onclick="dmsDirEdit\('([^']+)'\)">تعديل<\/button>)/g, (all, b, id) => { const m = DIR().find((x) => x.id === id); return m && dAccount(m) ? `<button class="btn sm" title="إعادة كلمة المرور إلى رقم الجوال دون الصفر" onclick="dmsPwReset('${id}')">🔑</button> ` + b : b; });
+      let box = '';
+      if (PWR_ERR === 'missing') box = `<div class="panel" style="border:2px solid #E0A800"><div class="body small">لتفعيل «طلب كلمة مرور جديدة» من شاشة الدخول، شغّل ملف <b dir="ltr">4f_password_requests_0009.sql</b> مرة واحدة في Supabase ← SQL Editor.</div></div>`;
+      else if (PWR.length) box = `<div class="panel" style="border:2px solid #C62828"><h3>🔑 طلبات كلمة مرور جديدة (${PWR.length})</h3><div class="body">
+        <p class="small muted" style="margin-top:0">عند الموافقة تعود كلمة المرور إلى رقم جوال العضو دون الصفر الأول، ويُطلب منه تغييرها عند الدخول، وتظهر لك رسالة جاهزة لإرسالها له عبر واتساب أو البريد.</p>
+        <table class="t"><tr><th>العضو</th><th>البريد</th><th>وقت الطلب</th><th></th></tr>${PWR.map((r) => { const m = DIR().find((x) => dMail(x.email) === dMail(r.email));
+          return `<tr><td>${esc(m ? m.name : '—')}</td><td dir="ltr" class="small">${esc(r.email)}</td><td class="small">${fmtDT(r.created_at)}</td><td style="white-space:nowrap"><button class="btn sm primary" onclick="dmsPwrAct('${r.id}',true)">موافقة</button> <button class="btn sm" onclick="dmsPwrAct('${r.id}',false)">رفض</button></td></tr>`; }).join('')}</table></div></div>`;
+      return box + h; }; }
 
   /* ---------- التشغيل ---------- */
   function applyBootstrap(b) {
