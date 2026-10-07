@@ -1600,7 +1600,11 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
   const DUI = { q: '', comm: '', dept: '', st: '' };
   /* أدوار فرعية لبعض البرامج: تُحدَّد من الموقع، ويقرؤها البرنامج */
   const SUBR = { readiness: [['committee', 'عضو لجنة الجاهزية']] };
-  const subOpts = (cid) => Object.keys(allApps()).filter((k) => appComms(k).includes(cid)).flatMap((k) => SUBR[k] || []);
+  /* قياس مخرجات التعلم: الصفة تُحدَّد هنا مرة واحدة، والبرنامج يعرض لكل صفة مهامها */
+  const CLO_SUBR = [['quality', 'دكتور + عضو لجنة الجودة'], ['pcoord', 'دكتور + منسق البرنامج'], ['pcoordq', 'دكتور + منسق البرنامج + لجنة الجودة']];
+  const isCloApp = (k) => k === 'clo' || /مخرجات\s*التعلم/.test(String((allApps()[k] || {}).name || ''));
+  const subsFor = (k) => SUBR[k] || (isCloApp(k) ? CLO_SUBR : []);
+  const subOpts = (cid) => { const seen = new Set(); return [...new Set([...Object.keys(allApps()), 'clo'])].filter((k) => appComms(k).includes(cid)).flatMap(subsFor).filter(([v]) => !seen.has(v) && seen.add(v)); };
   const appRoles = () => { DB.settings.appRoles = DB.settings.appRoles || {}; return DB.settings.appRoles; };
   const subOf = (email, cid) => ((appRoles()[dMail(email)] || {})[cid]) || '';
   const roleOpts = (cid) => { const subs = subOpts(cid); return [['', '—'], ['member', subs.length ? 'عضو — دكتور' : 'عضو'], ...subs.map(([v, l]) => ['member:' + v, l]), ['chair', 'رئيس اللجنة'], ['viewer', 'مطّلع (مشاهد)']]; };
