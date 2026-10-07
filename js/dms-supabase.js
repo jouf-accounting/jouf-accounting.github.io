@@ -512,8 +512,12 @@
   }
   async function preloadAppStore(a) {
     const scope = appScope(a);
-    const { data, error } = await sb.from('app_storage').select('key,value,version').eq('app_key', a).eq('scope', scope);
-    if (error) throw error;
+    /* تحميل على دفعات: الخادم يعيد 1000 صف كحد أقصى في الطلب الواحد، والأنظمة الكبيرة تتجاوز ذلك */
+    let data = [];
+    for (let from = 0; ; from += 1000) {
+      const r = await sb.from('app_storage').select('key,value,version').eq('app_key', a).eq('scope', scope).order('key', { ascending: true }).range(from, from + 999);
+      if (r.error) throw r.error; data = data.concat(r.data || []); if (!r.data || r.data.length < 1000) break;
+    }
     const map = new Map(), ver = new Map();
     (data || []).forEach((r) => { map.set(r.key, r.value); ver.set(r.key, r.version); });
     const lsp = 'dmsapp:' + a + '|' + scope + ':';
@@ -530,18 +534,35 @@
     if (S.flushing) { S.again = true; return; }
     S.flushing = true;
     try { await flushAppNow(S, force); }
-    finally { S.flushing = false; if (S.again) { S.again = false; if (S.pending.size) flushApp(S, force); } }
+    finally { S.flushing = false; if (S.again) { S.again = false; if (S.pending.size) flushApp(S, force); } if (!S.pending.size && !S.flushing) appProgress(0, 0); }
   }
+  /* الحفظ على دفعات متوازية (8 في كل مرة) مع عدّاد، حتى لا يطول حفظ مئات الشعب */
   async function flushAppNow(S, force) {
-    for (const [k, v] of [...S.pending]) {
-      S.pending.delete(k);
-      if (v === null) { const { error } = await sb.rpc('app_storage_del', { p_app: S.app, p_scope: S.scope, p_key: k }); if (error) { S.pending.set(k, v); break; } S.ver.delete(k); continue; }
+    const items = [...S.pending]; items.forEach(([k]) => S.pending.delete(k));
+    const total = items.length; let done = 0, failed = false;
+    const one = async ([k, v]) => {
+      if (failed) { if (!S.pending.has(k)) S.pending.set(k, v); return; }
+      if (v === null) { const { error } = await sb.rpc('app_storage_del', { p_app: S.app, p_scope: S.scope, p_key: k }); if (error) { failed = true; LAST_ERR = error.message; if (!S.pending.has(k)) S.pending.set(k, v); return; } S.ver.delete(k); return; }
       const { data, error } = await sb.rpc('app_storage_put', { p_app: S.app, p_scope: S.scope, p_key: k, p_value: v, p_expected: force ? null : (S.ver.has(k) ? S.ver.get(k) : null) });
-      if (error) { S.pending.set(k, v); LAST_ERR = error.message; setConn('err'); setTimeout(() => flushApp(S), 10000); break; }
+      if (error) { failed = true; LAST_ERR = error.message; if (!S.pending.has(k)) S.pending.set(k, v); return; }
       if (data && data.ok) S.ver.set(k, data.version);
       else { S.conflicts.set(k, v); renderToolNotice(S.app); }
+    };
+    for (let i = 0; i < items.length; i += 8) {
+      await Promise.all(items.slice(i, i + 8).map(one)); done = Math.min(total, i + 8);
+      if (total > 8) appProgress(done, total);
     }
+    appProgress(0, 0);
+    if (failed) { setConn('err'); setTimeout(() => flushApp(S), 10000); }
   }
+  function appProgress(done, total) {
+    const el = $('#syncLbl'); if (!el) return;
+    if (total) { el.textContent = `جارٍ حفظ بيانات النظام ${done} من ${total}… لا تغلق الصفحة`; el.className = 'small bad'; }
+    else if (!Object.values(window.DMS_APPSTORE).some((x) => x.pending.size || x.flushing)) setConn('ok');
+  }
+  /* تنبيه قبل إغلاق الصفحة إذا بقيت تعديلات لم تُحفظ في الخادم */
+  window.addEventListener('beforeunload', (e) => { const busy = Object.values(window.DMS_APPSTORE).some((x) => x.pending.size || x.flushing);
+    if (busy) { Object.values(window.DMS_APPSTORE).forEach((x) => { if (x.pending.size) { clearTimeout(x.timer); flushApp(x); } }); e.preventDefault(); e.returnValue = 'لم يكتمل حفظ البيانات بعد.'; return e.returnValue; } });
   function onRemoteAppStorage(p) {
     const n = p.new || {}, o = p.old || {};
     const a = n.app_key || o.app_key, S = window.DMS_APPSTORE[a];
@@ -1233,7 +1254,8 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
   window.dmsSysRenameSave = function (k) { setMeta(k, { name: val('smN'), desc: val('smD') }); audit('تعديل اسم نظام', val('smN') || k, ''); save(); closeModal(); refresh(); };
   window.dmsSysDataDlg = async function (k) {
     const A = allApps()[k] || {}, custom = !!A.custom;
-    const { data, error } = await sb.from('app_storage').select('scope,key').eq('app_key', k);
+    let data = [], error = null;
+    for (let from = 0; ; from += 1000) { const r = await sb.from('app_storage').select('scope,key').eq('app_key', k).order('key', { ascending: true }).range(from, from + 999); if (r.error) { error = r.error; break; } data = data.concat(r.data || []); if (!r.data || r.data.length < 1000) break; }
     if (error) { alert(error.message); return; }
     const per = {}; (data || []).forEach((r) => { per[r.scope] = (per[r.scope] || 0) + 1; });
     const scopes = Object.keys(per);
@@ -1250,8 +1272,9 @@ try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(
   window.dmsSysDataRun = async function (k) {
     if ((val('sdC') || '').trim() !== 'حذف') { alert('اكتب كلمة «حذف» للتأكيد.'); return; }
     const A = allApps()[k] || {}, sel = document.getElementById('sdS'), sc = sel ? sel.value : '*';
-    let q = sb.from('app_storage').select('scope,key').eq('app_key', k); if (sc !== '*') q = q.eq('scope', sc);
-    const { data } = await q; let n = 0, fail = 0;
+    let data = [];
+    for (let from = 0; ; from += 1000) { let q = sb.from('app_storage').select('scope,key').eq('app_key', k); if (sc !== '*') q = q.eq('scope', sc); const r = await q.order('key', { ascending: true }).range(from, from + 999); if (r.error || !r.data) break; data = data.concat(r.data); if (r.data.length < 1000) break; }
+    let n = 0, fail = 0;
     for (const r of (data || [])) { const { error } = await sb.rpc('app_storage_del', { p_app: k, p_scope: r.scope, p_key: r.key }); if (error) fail++; else n++; }
     Object.keys(localStorage).filter((x) => x.startsWith('dmsapp:' + k + '|' + (sc === '*' ? '' : sc))).forEach((x) => localStorage.removeItem(x));
     if (FRAMES[k]) { FRAMES[k].remove(); delete FRAMES[k]; }
