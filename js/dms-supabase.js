@@ -302,10 +302,22 @@
 
   /* ---------- التحديث الفوري ---------- */
   const RT_TABLES = [...Object.values(T), 'committees', 'departments', 'profiles', 'memberships', 'settings', 'app_versions', 'custom_apps', 'app_storage', 'dept_settings'];
+  /* توفير الاستهلاك: إن وُجد جدول الإشارات الخفيفة app_storage_sig لا نستقبل بيانات الأنظمة كاملة في التحديث الفوري؛
+     تصل إشارة صغيرة (المفتاح ورقم الإصدار) ولمن يفتح ذلك النظام فقط — يوفّر معظم استهلاك النقل في الخطة المجانية */
+  let SIG_OK; const SIG_CH = {};
+  async function sigReady() { if (SIG_OK === undefined) { try { const r = await sb.from('app_storage_sig').select('key').limit(1); SIG_OK = !r.error; } catch (e) { SIG_OK = false; } } return SIG_OK; }
+  async function sigSubscribe(a) {
+    if (SIG_CH[a] || !(await sigReady())) return;
+    SIG_CH[a] = sb.channel('sig-' + a).on('postgres_changes', { event: '*', schema: 'public', table: 'app_storage_sig', filter: 'app_key=eq.' + a }, (p) => { try { onRemoteAppStorage(p); } catch (e) { console.error(e); } }).subscribe();
+  }
   function startRealtime() {
     if (RT) return;
+    RT = 'starting';
+    sigReady().then((ok) => { startRealtimeNow(ok ? RT_TABLES.filter((t) => t !== 'app_storage') : RT_TABLES); });
+  }
+  function startRealtimeNow(TABLES) {
     RT = sb.channel('dms-all');
-    RT_TABLES.forEach((t) => RT.on('postgres_changes', { event: '*', schema: 'public', table: t }, (p) => { try { applyRemote(p); } catch (e) { console.error(e); } }));
+    TABLES.forEach((t) => RT.on('postgres_changes', { event: '*', schema: 'public', table: t }, (p) => { try { applyRemote(p); } catch (e) { console.error(e); } }));
     RT.subscribe((st) => {
       const was = RT_STATE; RT_STATE = st; setConn(st === 'SUBSCRIBED' ? 'ok' : 'err');
       if (st === 'SUBSCRIBED' && was && was !== 'SUBSCRIBED' && was !== 'off') resync();   // بعد انقطاع: جلب ما فات
@@ -504,7 +516,8 @@
   const APP_KEYS = { training: /^tms-/, exams: /^(exam|ota_)/, readiness: /^(academia:|readiness:)/, surveys: /^srv_/ };
   const LOCAL_ONLY = { training: /^tms-(session|local|local-role|fonts|nodigit|track)$/, exams: /^(ota_|examAtt_recSection)/, readiness: /(attempt|envelope)/ };
   const isLocalKey = (a, k) => /session|token/i.test(k) || !!(LOCAL_ONLY[a] && LOCAL_ONLY[a].test(k));
-  window.DMS_APPSTORE = {};
+  window.DMS_APPSTORE = {}; const APPSTAT = window.DMS_APPSTAT = {};
+  function cacheSave(S) { if (!S.crow) return; clearTimeout(S.ctimer); S.ctimer = setTimeout(() => { IDB.put(S.ck, JSON.stringify({ at: Date.now(), rows: S.crow })).catch(() => {}); }, 2500); }
   function appScope(a) {
     const A = allApps()[a]; const c = A && comm(A.committee);
     if (c && c.level === 'college') return 'college';
@@ -513,16 +526,39 @@
   async function preloadAppStore(a) {
     const scope = appScope(a);
     /* تحميل على دفعات: الخادم يعيد 1000 صف كحد أقصى في الطلب الواحد، والأنظمة الكبيرة تتجاوز ذلك */
+    /* توفير الاستهلاك: ذاكرة محلية (IndexedDB) بأرقام الإصدارات: نجلب أولًا أرقام الإصدارات فقط، ثم القيم التي تغيّرت منذ آخر فتح.
+       أول فتح على جهاز جديد يجلب كل شيء كما كان. */
+    const ck = 'aps:' + a + '|' + scope;
+    let cache = null; try { const c = await IDB.get(ck); cache = c ? (typeof c === 'string' ? JSON.parse(c) : c) : null; } catch (e) { cache = null; }
     let data = [];
-    for (let from = 0; ; from += 1000) {
-      const r = await sb.from('app_storage').select('key,value,version').eq('app_key', a).eq('scope', scope).order('key', { ascending: true }).range(from, from + 999);
-      if (r.error) throw r.error; data = data.concat(r.data || []); if (!r.data || r.data.length < 1000) break;
+    if (cache && cache.rows) {
+      let vers = [];
+      for (let from = 0; ; from += 1000) {
+        const r = await sb.from('app_storage').select('key,version').eq('app_key', a).eq('scope', scope).order('key', { ascending: true }).range(from, from + 999);
+        if (r.error) throw r.error; vers = vers.concat(r.data || []); if (!r.data || r.data.length < 1000) break;
+      }
+      const need = vers.filter((r) => !cache.rows[r.key] || cache.rows[r.key].ver !== r.version).map((r) => r.key), got = {};
+      for (let i = 0; i < need.length; i += 40) {
+        const r = await sb.from('app_storage').select('key,value,version').eq('app_key', a).eq('scope', scope).in('key', need.slice(i, i + 40));
+        if (r.error) throw r.error; (r.data || []).forEach((x) => { got[x.key] = x; });
+      }
+      vers.forEach((r) => { const g = got[r.key]; if (g) data.push(g); else if (cache.rows[r.key] && cache.rows[r.key].ver === r.version) data.push({ key: r.key, value: cache.rows[r.key].v, version: r.version }); });
+      APPSTAT[a] = { keys: vers.length, fetched: need.length, cached: vers.length - need.length };
+    } else {
+      for (let from = 0; ; from += 1000) {
+        const r = await sb.from('app_storage').select('key,value,version').eq('app_key', a).eq('scope', scope).order('key', { ascending: true }).range(from, from + 999);
+        if (r.error) throw r.error; data = data.concat(r.data || []); if (!r.data || r.data.length < 1000) break;
+      }
+      APPSTAT[a] = { keys: data.length, fetched: data.length, cached: 0 };
     }
+    const crow = {}; data.forEach((r) => { crow[r.key] = { v: r.value, ver: r.version }; });
+    IDB.put(ck, JSON.stringify({ at: Date.now(), rows: crow })).catch(() => {});
+    sigSubscribe(a).catch(() => {});
     const map = new Map(), ver = new Map();
     (data || []).forEach((r) => { map.set(r.key, r.value); ver.set(r.key, r.version); });
     const lsp = 'dmsapp:' + a + '|' + scope + ':';
     for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(lsp)) map.set(k.slice(lsp.length), localStorage.getItem(k)); }
-    const S = { app: a, scope, map, ver, pending: new Map(), timer: null, conflicts: new Map(), remoteChanged: false,
+    const S = { app: a, scope, map, ver, crow, ck, pending: new Map(), timer: null, conflicts: new Map(), remoteChanged: false,
       put(k, v) { if (isLocalKey(a, k)) { try { localStorage.setItem(lsp + k, v); } catch (e) {} return; } S.pending.set(k, v); sched(); },
       del(k) { if (isLocalKey(a, k)) { localStorage.removeItem(lsp + k); return; } S.pending.set(k, null); sched(); } };
     function sched() { clearTimeout(S.timer); S.timer = setTimeout(() => flushApp(S), 1500); }
@@ -542,10 +578,10 @@
     const total = items.length; let done = 0, failed = false;
     const one = async ([k, v]) => {
       if (failed) { if (!S.pending.has(k)) S.pending.set(k, v); return; }
-      if (v === null) { const { error } = await sb.rpc('app_storage_del', { p_app: S.app, p_scope: S.scope, p_key: k }); if (error) { failed = true; LAST_ERR = error.message; if (!S.pending.has(k)) S.pending.set(k, v); return; } S.ver.delete(k); return; }
+      if (v === null) { const { error } = await sb.rpc('app_storage_del', { p_app: S.app, p_scope: S.scope, p_key: k }); if (error) { failed = true; LAST_ERR = error.message; if (!S.pending.has(k)) S.pending.set(k, v); return; } S.ver.delete(k); if (S.crow) { delete S.crow[k]; cacheSave(S); } return; }
       const { data, error } = await sb.rpc('app_storage_put', { p_app: S.app, p_scope: S.scope, p_key: k, p_value: v, p_expected: force ? null : (S.ver.has(k) ? S.ver.get(k) : null) });
       if (error) { failed = true; LAST_ERR = error.message; if (!S.pending.has(k)) S.pending.set(k, v); return; }
-      if (data && data.ok) S.ver.set(k, data.version);
+      if (data && data.ok) { S.ver.set(k, data.version); if (S.crow) { S.crow[k] = { v, ver: data.version }; cacheSave(S); } }
       else { S.conflicts.set(k, v); renderToolNotice(S.app); }
     };
     for (let i = 0; i < items.length; i += 8) {
