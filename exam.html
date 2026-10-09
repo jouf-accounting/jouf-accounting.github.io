@@ -9,7 +9,8 @@
 <meta name="theme-color" content="#4C3D8E">
 <title>اختبار الجاهزية</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{color-scheme:light dark;
   --pri:#4C3D8E;--pri2:#6352B5;--pri3:#EFECF9;--teal:#1F9AA8;--orange:#E8833A;
@@ -24,7 +25,7 @@
   --shadow:0 1px 2px rgba(0,0,0,.3)}}
 *{box-sizing:border-box}
 html,body{margin:0}
-body{font-family:"IBM Plex Sans Arabic","Segoe UI",Tahoma,Arial,sans-serif;color:var(--ink);font-size:15px;line-height:1.75;min-height:100vh;
+body{font-family:"Noto Naskh Arabic","Sakkal Majalla","Traditional Arabic","Segoe UI",Tahoma,serif;color:var(--ink);font-size:17px;line-height:1.8;min-height:100vh;
   background:var(--bg) radial-gradient(1200px 500px at 85% -10%,rgba(99,82,181,.13),transparent 60%) no-repeat,var(--bg) radial-gradient(900px 400px at 0% 0%,rgba(31,154,168,.08),transparent 60%) no-repeat;
   padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 .ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle;flex:none}
@@ -37,8 +38,8 @@ body{font-family:"IBM Plex Sans Arabic","Segoe UI",Tahoma,Arial,sans-serif;color
 .top .mk img{width:100%;height:100%;object-fit:contain}
 .top b{display:block;font-size:16px;color:var(--pri)}.top small{color:var(--muted);font-size:12.5px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;margin-bottom:14px;box-shadow:var(--shadow)}
-h1{font-size:22px;margin:0 0 6px;color:var(--ink)}h2{font-size:17px;margin:0 0 12px}
-label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:14px 0 6px}
+h1{font-size:25px;margin:0 0 6px;color:var(--ink)}h2{font-size:19px;margin:0 0 12px}
+label{display:block;font-size:15px;font-weight:600;color:var(--muted);margin:14px 0 6px}
 input{width:100%;font:inherit;font-size:16px;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;background:var(--field);color:var(--ink)}
 input:focus{outline:3px solid rgba(99,82,181,.22);border-color:var(--pri2)}
 .btn{font:inherit;font-weight:700;font-size:15px;border:0;border-radius:12px;padding:12px 20px;cursor:pointer;background:var(--pri);color:#fff;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:background .15s,transform .05s}
@@ -73,8 +74,8 @@ ul.rules{margin:8px 0 0;padding-inline-start:20px}ul.rules li{margin-bottom:6px}
 #fin{padding:9px 14px;flex:none}
 @media (max-width:520px){#fin .lbl{display:none}#fin{padding:9px 11px}}
 .qno{font-size:13px;color:var(--pri2);font-weight:700;margin-bottom:6px}
-.qtext{font-size:17px;font-weight:600;margin:0 0 14px;line-height:1.95;white-space:pre-wrap}
-.opt{display:flex;align-items:flex-start;gap:12px;width:100%;text-align:right;font:inherit;font-size:15.5px;background:var(--field);border:2px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px;cursor:pointer;color:var(--ink);transition:border-color .15s,background .15s}
+.qtext{font-size:19.5px;font-weight:700;margin:0 0 14px;line-height:1.95;white-space:pre-wrap}
+.opt{display:flex;align-items:flex-start;gap:12px;width:100%;text-align:right;font:inherit;font-size:17.5px;background:var(--field);border:2px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px;cursor:pointer;color:var(--ink);transition:border-color .15s,background .15s}
 @media (hover:hover){.opt:hover{border-color:var(--pri2)}}
 .opt .l{width:30px;height:30px;border-radius:50%;background:var(--alt);display:grid;place-items:center;font-weight:700;flex:none;border:1px solid var(--line);color:var(--pri)}
 .opt.on{border-color:var(--pri);background:var(--pri3)}.opt.on .l{background:var(--pri);color:#fff;border-color:var(--pri)}
@@ -147,7 +148,12 @@ body.nocopy .qtext,body.nocopy .opt{-webkit-user-select:none;user-select:none;-w
 .rv details{margin-top:8px;font-size:13.5px}.rv summary{cursor:pointer;color:var(--pri);font-weight:600}
 .rv details ul{margin:6px 0 0;padding-inline-start:18px}.rv details li{margin-bottom:4px}
 .rv .qimg{max-width:420px;margin:6px 0 8px}
+.oth{margin-top:8px;font-size:16px;background:var(--alt);border-radius:10px;padding:10px 12px}.oth b{color:var(--warm)}.oth ul{margin:6px 0 0;padding-inline-start:20px}.oth li{margin-bottom:4px}.oth li b{color:var(--ink)}
 .sumhd{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+/* خط النسخ: تكبير النصوص الصغيرة لسهولة القراءة على الجوال */
+.note,.sg span,.rv .x,.rv .w,.rv .o,.rv details,.el,.tabs button,.qno,.prog .t,.sent{font-size:16px}
+@media screen{.sm{font-size:16px}.sm-p,.sm-x li,.sm-e,.sm-tp div,.sm-tb,.sm-in,.sm-f div{font-size:15.5px}.sm-p b,.sm-t{font-size:16.5px}.sm-hd h3{font-size:21px}.sm-f span{font-size:16px}.sm-cap{font-size:14.5px}}
+input{font-family:inherit}#fCode,#fUid{font-family:"Segoe UI",Tahoma,Arial,sans-serif}.timer,.hero .sc,.facts b{font-family:"Segoe UI",Tahoma,Arial,sans-serif}
 @media print{body.nocopy *{display:none!important}.top,.bar,.noprint,.nav{display:none!important}body{background:#fff;color:#000}.card,.rv{break-inside:avoid;box-shadow:none}.hero{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -195,7 +201,7 @@ var RD_SUM_CSS = '' +
 '.sm-tp{display:flex;flex-direction:column;gap:6px}.sm-tp div{background:#FFF6DF;border-radius:10px;padding:7px 12px;font-size:13.5px}' +
 '.sm-ft{font-size:11.5px;color:#7A8A83;text-align:center;padding:0 18px 12px}' +
 '@media print{.sm{font-size:10.5px;line-height:1.45}.sm-hd{padding:8px 12px}.sm-hd .bk{width:32px;height:32px;font-size:18px}.sm-hd h3{font-size:15px}.sm-hd .pc{font-size:14px}.sm-bd{padding:8px 12px}.sm-in{font-size:11px;padding:5px 10px;margin-bottom:4px}.sm-t{font-size:12px;margin:6px 0 3px}.sm-g{grid-template-columns:repeat(3,1fr);gap:5px}.sm-p{font-size:10.5px;padding:5px 8px}.sm-p b{font-size:11px}.sm-f{grid-template-columns:repeat(3,1fr);gap:5px}.sm-f div{padding:4px 8px;font-size:10px}.sm-f span{font-size:10.5px}.sm-tw{grid-template-columns:1fr 1fr;gap:8px}.sm-tb{font-size:10px}.sm-tb th,.sm-tb td{padding:3px 6px}.sm-x{padding:5px 10px}.sm-x li{font-size:10.5px;padding:0}.sm-e{padding:6px 10px;font-size:10.5px}.sm-tp div{padding:3px 10px;font-size:10.5px}.sm-cap{margin:4px 0 2px;font-size:10.5px}.sm-ft{padding-bottom:6px}.sm-f b{font-size:10px}.sm-e .n{font-size:10px;margin-top:2px}.sm-e .q{margin-bottom:2px}.sm-e ol{margin:2px 0}.sm-e .a{padding:1px 10px;margin-top:2px}.sm-tp{gap:3px}.sm-g,.sm-f{line-height:1.45}' +
-'.sm ~ .sm{break-before:page}.sm{break-inside:auto;border-color:#bbb}.sm-p,.sm-f div,.sm-e,.sm-x,.sm-tb{break-inside:avoid}.sm-hd,.sm-tb th,.sm-p,.sm-f div,.sm-x,.sm-e,.sm-tp div,.sm-in{-webkit-print-color-adjust:exact;print-color-adjust:exact}}';
+'.smpg.first{break-before:page}.sm-hd,.sm-t{break-after:avoid}.smpg .sm{margin-bottom:8px}.sm{break-inside:auto;border-color:#bbb}.sm-p,.sm-f div,.sm-e,.sm-x,.sm-tb{break-inside:avoid}.sm-hd,.sm-tb th,.sm-p,.sm-f div,.sm-x,.sm-e,.sm-tp div,.sm-in{-webkit-print-color-adjust:exact;print-color-adjust:exact}}';
 
 function rdSumHTML(s, opt) {
   opt = opt || {};
@@ -206,19 +212,21 @@ function rdSumHTML(s, opt) {
     e(opt.sub || ('ملخص سريع للمذاكرة' + (s.slo ? ' · ' + s.slo : ''))) + '</small></div>' +
     (opt.pct != null ? '<div class="pc">' + e(opt.pct) + '%<span>نتيجتك</span></div>' : '') + '</div><div class="sm-bd">';
   if (s.intro) h += '<div class="sm-in">' + e(s.intro) + '</div>';
-  var P = arr(s.points);
+  var full = !!opt.full;
+  var cap = function (a, n) { return full ? a : a.slice(0, n); };
+  var P = cap(arr(s.points), 4);
   if (P.length) {
     h += '<div class="sm-t">🎯 أهم ما يجب أن تعرفه</div><div class="sm-g">';
     P.forEach(function (p, i) { h += '<div class="sm-p sm-c' + (i % 6) + '">' + (p.h ? '<b>' + e(p.h) + '</b>' : '') + e(p.t) + '</div>'; });
     h += '</div>';
   }
-  var F = arr(s.formulas);
+  var F = cap(arr(s.formulas), 4);
   if (F.length) {
     h += '<div class="sm-t">🧮 معادلات وقواعد للحفظ</div><div class="sm-f">';
     F.forEach(function (f) { h += '<div><b>' + e(f.n) + '</b><span>' + e(f.f) + '</span></div>'; });
     h += '</div>';
   }
-  var TB = arr(s.tables).filter(function (t) { return t.rows && t.rows.length; });
+  var TB = cap(arr(s.tables).filter(function (t) { return t.rows && t.rows.length; }), 1);
   if (TB.length) {
     h += '<div class="sm-t">📊 جداول المقارنة</div><div class="sm-tw">';
     TB.forEach(function (t) {
@@ -228,7 +236,7 @@ function rdSumHTML(s, opt) {
     });
     h += '</div>';
   }
-  var M = arr(s.mistakes);
+  var M = cap(arr(s.mistakes), 4);
   if (M.length) {
     h += '<div class="sm-t">⚠️ أخطاء شائعة احذرها</div><ul class="sm-x">';
     M.forEach(function (m) { h += '<li><span>' + e(m) + '</span></li>'; });
@@ -237,12 +245,12 @@ function rdSumHTML(s, opt) {
   var X = s.example;
   if (X && X.q) {
     h += '<div class="sm-t">✍️ مثال محلول</div><div class="sm-e"><div class="q">' + e(X.q) + '</div>';
-    if (arr(X.steps).length) h += '<ol>' + arr(X.steps).map(function (x) { return '<li>' + e(x) + '</li>'; }).join('') + '</ol>';
+    if (arr(X.steps).length) h += '<ol>' + cap(arr(X.steps), 3).map(function (x) { return '<li>' + e(x) + '</li>'; }).join('') + '</ol>';
     if (X.a) h += '<span class="a">الإجابة: ' + e(X.a) + '</span>';
     if (X.note) h += '<div class="n">' + e(X.note) + '</div>';
     h += '</div>';
   }
-  var T = arr(s.tips);
+  var T = s.src === 'auto' ? [] : cap(arr(s.tips), 2);
   if (T.length) {
     h += '<div class="sm-t">💡 نصائح للمذاكرة</div><div class="sm-tp">';
     T.forEach(function (t) { h += '<div>' + e(t) + '</div>'; });
@@ -520,7 +528,7 @@ function rdSumHTML(s, opt) {
     }
     if (hasSm && tab === 'study') {
       h += '<div class="sumhd"><div class="note" style="flex:1">ملخص قصير لكل محور تحتاج إلى تقويته، مرتّب من الأولوية الأعلى. احفظه PDF وراجعه قبل محاولتك القادمة.</div></div>';
-      sums.forEach(function (s) { h += rdSumHTML(s.sum, { pct: s.pct }); });
+      for (var si = 0; si < sums.length; si += 2) { h += '<div class="smpg' + (si ? '' : ' first') + '">' + rdSumHTML(sums[si].sum, { pct: sums[si].pct }) + (sums[si + 1] ? rdSumHTML(sums[si + 1].sum, { pct: sums[si + 1].pct }) : '') + '</div>'; }
     }
     if (hasRv && tab === 'rev') {
       h += '<div class="card"><h2>مراجعة الإجابات</h2>';
@@ -535,7 +543,7 @@ function rdSumHTML(s, opt) {
         if (!rv.ok && rv.chosen != null && why[rv.chosen]) h += '<div class="w"><b>لماذا إجابتك غير صحيحة؟</b> ' + esc(why[rv.chosen]) + '</div>';
         if (exp) h += '<div class="x"><b>' + (why.length ? 'لماذا هذه هي الإجابة الصحيحة؟' : 'الشرح:') + '</b> ' + esc(exp) + '</div>';
         var others = []; why.forEach(function (w, k) { if (w && k !== rv.correct && k !== rv.chosen && q.options[k] != null) others.push('<li><b>' + esc(q.options[k]) + ':</b> ' + esc(w) + '</li>'); });
-        if (others.length) h += '<details><summary>لماذا بقية الخيارات خطأ؟</summary><ul>' + others.join('') + '</ul></details>';
+        if (others.length) h += '<div class="oth"><b>لماذا بقية الخيارات خطأ؟</b><ul>' + others.join('') + '</ul></div>';
         h += '</div>';
       });
       h += '</div>';
