@@ -71,8 +71,9 @@ ul.rules{margin:8px 0 0;padding-inline-start:20px}ul.rules li{margin-bottom:6px}
 .timer.warn{background:var(--badbg);color:var(--bad)}
 .prog{flex:1;min-width:0}.prog .t{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .prog .track{height:8px;background:var(--pri3);border-radius:999px;overflow:hidden}.prog .track i{display:block;height:100%;background:linear-gradient(90deg,var(--teal),var(--pri2));border-radius:999px;transition:width .25s}
-#fin{padding:9px 14px;flex:none}
-@media (max-width:520px){#fin .lbl{display:none}#fin{padding:9px 11px}}
+#fin,#svBtn{padding:9px 14px;flex:none}#svBtn{font-size:15px}
+.sv{font-weight:600}.netbar{background:var(--warmbg);color:var(--warm);font-weight:600;font-size:15px;padding:7px 16px;text-align:center}.sv.ok{color:var(--ok)}.sv.wait{color:var(--muted)}.sv.off{color:var(--warm)}
+@media (max-width:520px){#fin .lbl,#svBtn .lbl{display:none}#fin,#svBtn{padding:9px 11px}}
 .qno{font-size:13px;color:var(--pri2);font-weight:700;margin-bottom:6px}
 .qtext{font-size:19.5px;font-weight:700;margin:0 0 14px;line-height:1.95;white-space:pre-wrap}
 .opt{display:flex;align-items:flex-start;gap:12px;width:100%;text-align:right;font:inherit;font-size:17.5px;background:var(--field);border:2px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px;cursor:pointer;color:var(--ink);transition:border-color .15s,background .15s}
@@ -281,7 +282,23 @@ function rdSumHTML(s, opt) {
   function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; var t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
   function shuffle(arr, r) { var a = arr.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(r() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
   function key() { return 'oex:' + S.exam.id + ':' + S.uid; }
-  function persist() { try { localStorage.setItem(key(), JSON.stringify({ answers: S.answers, startedAt: S.startedAt, endsAt: S.endsAt, name: S.name, cur: S.cur, qEnd: S.qEnd, blur: S.blur, timedOut: S.timedOut })); } catch (e) {} }
+  function ckey() { return 'oexc:' + S.code + ':' + S.uid; }
+  /* حفظ التقدم في الخادم (إضافة إلى الجهاز) — يعمل بصمت، ويُتجاهل إن لم تُفعَّل الخدمة بعد */
+  function setSave(st, txt) { var el = document.getElementById('sv'); if (!el) return; el.className = 'sv ' + st; el.textContent = st === 'off' ? '📴 دون اتصال' : st === 'wait' ? '⏳ يُحفظ' : '💾 ' + (txt || 'محفوظ').replace(/^💾\s*/, '');
+    var n = document.getElementById('net'); if (n) n.innerHTML = st === 'off' ? '<div class="netbar">انقطع الاتصال — تابع الحل، إجاباتك محفوظة على جهازك وتُرسل عند عودة الاتصال.</div>' : ''; }
+  function remoteSave(cb) {
+    if (!S.exam || !S.startedAt || S.result || S.submitting || S.noRemote) { if (cb) cb(false); return; }
+    if (!navigator.onLine) { setSave('off', '📴 غير متصل — إجاباتك محفوظة على جهازك'); if (cb) cb(false); return; }
+    setSave('wait', '⏳ جارٍ الحفظ…');
+    sb.rpc('exam_progress_save', { p_code: S.code, p_uid: S.uid, p_answers: S.answers, p_cur: S.cur, p_started: S.startedAt, p_ends: new Date(S.endsAt).toISOString(), p_name: S.name || null })
+      .then(function (r) {
+        if (r.error) { if (/function|schema|PGRST2|404/i.test((r.error.message || '') + (r.error.code || ''))) S.noRemote = true; setSave('ok', '💾 محفوظ على جهازك'); if (cb) cb(false); return; }
+        S.lastSave = Date.now(); setSave('ok', 'محفوظ ' + new Date().toLocaleTimeString('ar-SA', { hour: 'numeric', minute: '2-digit' })); if (cb) cb(true);
+      }, function () { setSave('off', '📴 غير متصل — إجاباتك محفوظة على جهازك'); if (cb) cb(false); });
+  }
+  function persist() { try { if (S.startedAt) localStorage.setItem(ckey(), JSON.stringify({ startedAt: S.startedAt })); } catch (e) {}
+    clearTimeout(S.saveT); if (S.startedAt && !S.result) S.saveT = setTimeout(remoteSave, 2500);
+    try { localStorage.setItem(key(), JSON.stringify({ answers: S.answers, startedAt: S.startedAt, endsAt: S.endsAt, name: S.name, cur: S.cur, qEnd: S.qEnd, blur: S.blur, timedOut: S.timedOut })); } catch (e) {} }
   function locked() { return !!(S.exam && (S.exam.forwardOnly || S.exam.perQuestionSec > 0)); }
   function active() { return !!(S.exam && S.startedAt && !S.result && !S.submitting && document.getElementById('qcard')); }
   function setOrg(o) { if (o && o.systemName) document.getElementById('orgName').textContent = o.systemName; if (o && o.university) document.getElementById('orgSub').textContent = o.university; }
@@ -320,6 +337,7 @@ function rdSumHTML(s, opt) {
       sb.rpc('exam_open', { p_code: S.code, p_uid: S.uid }).then(function (r) {
         if (r.error) { screenLogin('تعذر الاتصال. تحقق من الإنترنت ثم حاول مرة أخرى.'); return; }
         var d = r.data;
+        if (d && d.submitted) { recoverResult(d.error); return; }
         if (!d || !d.ok) { screenLogin((d && d.error) || 'تعذر فتح الاختبار.'); return; }
         S.exam = d.exam; S.uid = d.student.uid; if (d.student.name) S.name = d.student.name;
         setOrg(S.exam.org);
@@ -334,7 +352,15 @@ function rdSumHTML(s, opt) {
           if (Date.now() >= S.endsAt) { doSubmit(true); return; }
           screenExam(); return;
         }
-        screenBrief();
+        /* لا يوجد حفظ على هذا الجهاز: نبحث عن تقدم محفوظ في الخادم (من جهاز آخر أو قبل تعطل الجهاز) */
+        sb.rpc('exam_progress_get', { p_code: S.code, p_uid: S.uid }).then(function (g) {
+          var P = g && !g.error && g.data && g.data.progress;
+          if (P && P.started_at && P.ends_at) {
+            S.answers = P.answers || {}; S.cur = Math.min(P.cur || 0, S.order.length - 1); S.startedAt = P.started_at; S.endsAt = new Date(P.ends_at).getTime(); if (P.name && !S.name) S.name = P.name;
+            persist(); if (Date.now() >= S.endsAt) { doSubmit(true); return; } screenExam(); return;
+          }
+          screenBrief();
+        }, function () { screenBrief(); });
       });
     }
     go.onclick = submit;
@@ -360,7 +386,7 @@ function rdSumHTML(s, opt) {
       (S.name ? '<p style="margin:0;color:var(--muted)">الطالب: <b style="color:var(--ink)">' + esc(S.name) + '</b> · ' + esc(S.uid) + '</p>' : '') +
       '<div class="facts"><div><b>' + S.exam.count + '</b><span>سؤالًا</span></div><div><b>' + S.exam.duration + '</b><span>دقيقة</span></div></div>' +
       '<ul class="rules"><li>يبدأ العدّاد عند الضغط على «ابدأ الاختبار»، ويُسلَّم الاختبار تلقائيًا عند انتهاء الوقت.</li>' +
-      '<li>إجاباتك تُحفظ على جهازك أولًا بأول؛ إن انقطع الاتصال أو أُغلقت الصفحة فافتح الرابط نفسه لتكمل.</li>' +
+      '<li>إجاباتك تُحفظ تلقائيًا على جهازك وفي الخادم أولًا بأول؛ إن انقطع الاتصال فأكمل الحل، وإن أُغلقت الصفحة أو تعطل الجهاز فافتح الرابط نفسه (ولو من جهاز آخر) لتكمل من حيث توقفت. وقت الاختبار مستمر.</li>' +
       rulesHtml() +
       '<li>بعد التسليم تظهر نتيجتك فورًا مع شرح الإجابات ومقترحات للتحسين، وتصل للدكتور مباشرة.</li></ul>' +
       (needName ? '<label for="fName2">الاسم الكامل (كما في سجلات الجامعة)</label><input id="fName2" autocomplete="name">' : '') +
@@ -384,10 +410,15 @@ function rdSumHTML(s, opt) {
   function answered() { return Object.keys(S.answers).length; }
   function screenExam() {
     app.innerHTML = '<div class="bar"><div class="in"><span class="timer" id="tm">' + ic('clock') + ' <span id="tmv">--:--</span></span>' +
-      '<div class="prog"><div class="t" id="pt"></div><div class="track"><i id="pb"></i></div></div>' +
-      (locked() ? '' : '<button class="btn gold" id="fin" aria-label="تسليم">' + ic('send') + '<span class="lbl">تسليم</span></button>') + '</div><div id="warn"></div></div>' +
+      '<div class="prog"><div class="t"><span id="pt"></span> · <span id="sv" class="sv ok">💾 محفوظ</span></div><div class="track"><i id="pb"></i></div></div>' +
+      '<button class="btn ghost" id="svBtn" aria-label="حفظ وإكمال لاحقًا" title="حفظ وإكمال لاحقًا">💾<span class="lbl">حفظ وإكمال لاحقًا</span></button>' +
+      (locked() ? '' : '<button class="btn gold" id="fin" aria-label="تسليم">' + ic('send') + '<span class="lbl">تسليم</span></button>') + '</div><div id="warn"></div><div id="net"></div></div>' +
       '<div class="wrap examwrap"><div class="card" id="qcard"></div><details class="card qmap"' + (window.innerWidth > 700 ? ' open' : '') + '><summary>خريطة الأسئلة</summary><div class="grid" id="grid"></div></details></div>';
     var fin = document.getElementById('fin'); if (fin) fin.onclick = confirmSubmit;
+    document.getElementById('svBtn').onclick = function () { persist(); clearTimeout(S.saveT); remoteSave(function (ok) {
+      alert(ok ? 'حُفظت إجاباتك في الخادم وعلى جهازك.\nتستطيع إغلاق الصفحة والعودة من الرابط نفسه، ولو من جهاز آخر، لتكمل من حيث توقفت.\nتنبيه: وقت الاختبار مستمر ولا يتوقف.'
+               : 'حُفظت إجاباتك على جهازك.\nإن عدت من الجهاز نفسه تكمل من حيث توقفت.\nتنبيه: وقت الاختبار مستمر ولا يتوقف.'); }); };
+    if (!navigator.onLine) setSave('off', '📴 غير متصل — إجاباتك محفوظة على جهازك');
     if (S.exam.noCopy) document.body.classList.add('nocopy');
     drawWarn(); drawQ(); tick(); clearInterval(S.timer); S.timer = setInterval(tick, 1000);
   }
@@ -469,17 +500,31 @@ function rdSumHTML(s, opt) {
       S.submitting = false;
       if (r.error || !r.data) { screenRetry('تعذر إرسال إجاباتك بسبب الاتصال. إجاباتك محفوظة على جهازك — اضغط «إعادة الإرسال».', auto, false, reason); return; }
       if (!r.data.ok) {
-        if (r.data.submitted) { try { localStorage.removeItem(key()); } catch (e) {} }
+        if (r.data.submitted) { recoverResult(r.data.error); return; }
         screenRetry(r.data.error || 'تعذر التسليم.', auto, r.data.submitted); return;
       }
       try { localStorage.removeItem(key()); } catch (e) {}
       S.result = r.data; screenResult();
     });
   }
-  function screenRetry(msg, auto, final, reason) {
+  function recoverResult(msg) {
+    var st = null; try { st = JSON.parse(localStorage.getItem(ckey()) || 'null'); } catch (e) {}
+    if (!st || !st.startedAt) { screenRetry(msg || 'سبق أن سلّمت هذا الاختبار.', false, true); return; }
+    app.innerHTML = '<div class="wrap"><div class="card center"><div class="spin"></div><h2>اختبارك مُسلَّم — جارٍ استرجاع نتيجتك…</h2></div></div>';
+    sb.rpc('exam_result', { p_code: S.code, p_uid: S.uid, p_started: st.startedAt }).then(function (r) {
+      if (r.error || !r.data || !r.data.ok) { screenRetry((msg || 'سبق أن سلّمت هذا الاختبار.') + ' إجاباتك وصلت إلى الدكتور.', false, true); return; }
+      if (!S.exam && r.data.exam) { S.exam = r.data.exam; setOrg(S.exam.org); }
+      S.result = r.data; try { if (S.exam && S.exam.id) localStorage.removeItem(key()); } catch (e) {}
+      screenResult();
+    }, function () { screenRetry('تعذر الاتصال. أعد المحاولة بعد عودة الإنترنت.', false, false, null, function () { recoverResult(msg); }); });
+  }
+  function screenRetry(msg, auto, final, reason, retryFn) {
+    var again = retryFn || function () { doSubmit(auto, reason); };
     app.innerHTML = '<div class="wrap"><div class="card"><h2>' + (final ? 'تم التسليم مسبقًا' : 'لم يكتمل الإرسال') + '</h2><div class="err">' + esc(msg) + '</div>' +
-      (final ? '' : '<button class="btn wide" id="retry">' + ic('send') + ' إعادة الإرسال</button>') + '</div></div>';
-    var b = document.getElementById('retry'); if (b) b.onclick = function () { doSubmit(auto, reason); };
+      (final ? '' : '<p class="note" style="margin-top:12px">إجاباتك محفوظة على جهازك. سنعيد المحاولة تلقائيًا عند عودة الاتصال، ويمكنك الضغط على الزر في أي وقت.</p><button class="btn wide" id="retry">' + ic('send') + ' إعادة الإرسال</button>') + '</div></div>';
+    var b = document.getElementById('retry'); if (b) b.onclick = function () { clearInterval(S.retryT); again(); };
+    clearInterval(S.retryT);
+    if (!final) S.retryT = setInterval(function () { if (navigator.onLine && document.getElementById('retry')) { clearInterval(S.retryT); again(); } }, 15000);
   }
 
   /* ---------------- النتيجة ---------------- */
@@ -554,6 +599,8 @@ function rdSumHTML(s, opt) {
     app.querySelectorAll('[data-t],[data-go]').forEach(function (b) { b.onclick = function () { screenResult(b.getAttribute('data-t') || b.getAttribute('data-go')); scrollTo(0, 0); }; });
   }
 
+  window.addEventListener('offline', function () { if (active()) setSave('off', '📴 غير متصل — إجاباتك محفوظة على جهازك'); });
+  window.addEventListener('online', function () { if (active()) remoteSave(); });
   document.addEventListener('visibilitychange', function () {
     if (!S.exam || !S.exam.trackFocus || !active()) return;
     if (document.hidden) {
